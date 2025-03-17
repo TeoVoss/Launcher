@@ -253,7 +253,12 @@ struct SpotlightView: View {
                 AIResponseView(
                     aiService: aiService,
                     prompt: searchText,
-                    onEscape: handleEscape
+                    onEscape: handleEscape,
+                    onHeightChange: { contentHeight in
+                        DispatchQueue.main.async {
+                            adjustWindowHeightWithContent(contentHeight: contentHeight)
+                        }
+                    }
                 )
             } else if !searchText.isEmpty {
                 VStack(spacing: 0) {
@@ -310,12 +315,24 @@ struct SpotlightView: View {
         .onChange(of: searchService.searchResults) { _, _ in
             adjustWindowHeight()
         }
-        .onChange(of: aiService.currentResponse) { _, _ in
-            adjustWindowHeight()
+        .onChange(of: aiService.currentResponse) { _, newValue in
+            // 不再需要在这里调整高度，已由 onHeightChange 回调处理
         }
         .onChange(of: showingAIResponse) { _, newValue in
             if newValue {
-                adjustWindowHeight()
+                // 显示 AI 响应时设置一个初始高度
+                let baseHeight: CGFloat = 60
+                let initialHeight = baseHeight + 150 // 搜索框高度 + 初始内容高度
+                height = initialHeight
+                DispatchQueue.main.async {
+                    if let window = NSApp.keyWindow {
+                        var frame = window.frame
+                        let oldHeight = frame.size.height
+                        frame.origin.y += (oldHeight - initialHeight)
+                        frame.size.height = initialHeight
+                        window.setFrame(frame, display: true, animate: false)
+                    }
+                }
             }
         }
         .onKeyPress(.escape) { [self] in
@@ -412,32 +429,140 @@ struct SpotlightView: View {
         let maxResultsHeight: CGFloat = 500 // 最大结果列表高度
         let resultRowHeight: CGFloat = 44 // 每个结果行的高度
         let emptyStateHeight: CGFloat = 60 // 无结果状态的高度
-        let aiViewInitialHeight: CGFloat = 400 // AI 视图的初始高度
-        let aiViewMaxHeight: CGFloat = 800 // AI 视图的最大高度
+        let aiViewMinHeight: CGFloat = 120 // AI 视图的最小高度
+        let aiViewDefaultHeight: CGFloat = 250 // AI 视图的默认高度
+        let aiViewMaxHeight: CGFloat = 500 // AI 视图的最大高度
         let padding: CGFloat = 16 // 上下内边距
+        let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
+        let maxWindowHeight = min(screenHeight * 0.8, 800) // 窗口最大高度限制
+        
+        var newHeight: CGFloat = baseHeight
         
         if showingAIResponse {
-            // 初始状态或加载中状态使用初始高度
+            // AI 视图显示时，根据内容长度计算高度
             if aiService.currentResponse.isEmpty {
-                height = baseHeight + aiViewInitialHeight
+                // 初始高度使用最小高度
+                newHeight = baseHeight + aiViewMinHeight
             } else {
-                // 根据内容长度计算高度，但不超过最大高度
+                // 根据内容长度计算高度
                 let responseLength = aiService.currentResponse.count
-                let estimatedHeight = min(
-                    aiViewMaxHeight,
-                    max(aiViewInitialHeight, CGFloat(responseLength) / 2)
-                )
-                height = baseHeight + estimatedHeight
+                
+                // 动态计算高度
+                var dynamicHeight: CGFloat
+                
+                if responseLength < 100 {
+                    // 较短的回复使用最小高度
+                    dynamicHeight = aiViewMinHeight
+                } else if responseLength < 300 {
+                    // 中等长度的回复
+                    dynamicHeight = aiViewMinHeight + CGFloat(responseLength - 100) / 4
+                } else {
+                    // 较长的回复根据字符数动态计算
+                    let averageCharPerLine: CGFloat = 30 // 假设每行平均 30 个字符
+                    let lineHeight: CGFloat = 22 // 每行文字的高度
+                    let promptHeight: CGFloat = 30 // 问题文本的高度
+                    let estimatedLines = ceil(CGFloat(responseLength) / averageCharPerLine)
+                    dynamicHeight = min(
+                        aiViewMaxHeight,
+                        promptHeight + estimatedLines * lineHeight + padding
+                    )
+                }
+                
+                newHeight = min(baseHeight + dynamicHeight, maxWindowHeight)
+                
+                // 窗口逐步增高，避免突然变高
+                if height > newHeight {
+                    // 如果当前高度已经更高，则保持不变
+                    return
+                } else if newHeight - height < 20 {
+                    // 变化不大时不调整
+                    return
+                }
             }
         } else if searchText.isEmpty {
-            height = baseHeight
+            // 搜索文本为空时，高度只包含搜索框
+            newHeight = baseHeight
         } else {
+            // 搜索结果显示时的高度
             if displayResults.isEmpty {
-                height = baseHeight + emptyStateHeight
+                // 无搜索结果时，显示一个空状态
+                newHeight = baseHeight + emptyStateHeight
             } else {
+                // 根据搜索结果数量计算高度
                 let resultsCount = displayResults.count
                 let contentHeight = min(CGFloat(resultsCount) * resultRowHeight, maxResultsHeight)
-                height = baseHeight + contentHeight + padding
+                newHeight = baseHeight + contentHeight + padding
+                
+                // 本地搜索时添加一个节流，避免频繁调整高度导致跳动
+                if abs(newHeight - height) < 30 {
+                    return
+                }
+            }
+        }
+        
+        // 如果高度发生了有意义的变化，才进行调整
+        if abs(newHeight - height) > 10 {
+            height = newHeight
+            
+            // 直接应用到窗口，确保调整生效
+            DispatchQueue.main.async {
+                if let window = NSApp.keyWindow {
+                    var frame = window.frame
+                    let oldHeight = frame.size.height
+                    
+                    // 保持窗口顶部位置不变
+                    frame.origin.y += (oldHeight - newHeight)
+                    frame.size.height = newHeight
+                    
+                    // 使用非动画方式设置窗口大小
+                    window.setFrame(frame, display: true, animate: false)
+                }
+            }
+        }
+    }
+    
+    private func adjustWindowHeightWithContent(contentHeight: CGFloat) {
+        // 基础高度（搜索框）
+        let baseHeight: CGFloat = 60
+        // 内容边距
+        let padding: CGFloat = 36
+        // 内容最小高度
+        let minContentHeight: CGFloat = 120
+        // 屏幕高度
+        let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
+        // 窗口最大高度限制
+        let maxWindowHeight = min(screenHeight * 0.8, 700)
+        
+        // 确保内容高度不低于最小值
+        let effectiveContentHeight = max(contentHeight, minContentHeight)
+        
+        // 计算新的窗口高度（基础高度 + 内容高度 + 内容边距）
+        let newHeight = min(baseHeight + effectiveContentHeight + padding, maxWindowHeight)
+        
+        // 如果高度变化不大，不进行调整
+        if abs(newHeight - height) < 10 {
+            return
+        }
+        
+        // 如果新的高度小于当前高度且当前高度合理，不进行调整（允许内容增长，但不收缩）
+        if newHeight < height && height < maxWindowHeight && height > (baseHeight + minContentHeight) {
+            return
+        }
+        
+        // 更新高度并应用到窗口
+        height = newHeight
+        
+        DispatchQueue.main.async {
+            if let window = NSApp.keyWindow {
+                var frame = window.frame
+                let oldHeight = frame.size.height
+                
+                // 保持窗口顶部位置不变
+                frame.origin.y += (oldHeight - newHeight)
+                frame.size.height = newHeight
+                
+                // 使用非动画方式设置窗口大小
+                window.setFrame(frame, display: true, animate: false)
             }
         }
     }
@@ -458,8 +583,26 @@ struct SpotlightView: View {
             if searchText != prompt {
                 prompt = searchText
                 aiService.cancelStream()
-                Task { @MainActor in
-                    await aiService.streamChat(prompt: searchText)
+                
+                // 重置高度到初始状态
+                let baseHeight: CGFloat = 60
+                let initialHeight = baseHeight + 150 // 搜索框高度 + 初始内容高度
+                height = initialHeight
+                
+                // 应用新高度到窗口
+                DispatchQueue.main.async {
+                    if let window = NSApp.keyWindow {
+                        var frame = window.frame
+                        let oldHeight = frame.size.height
+                        frame.origin.y += (oldHeight - initialHeight)
+                        frame.size.height = initialHeight
+                        window.setFrame(frame, display: true, animate: false)
+                    }
+                    
+                    // 重新请求
+                    Task { @MainActor in
+                        await aiService.streamChat(prompt: searchText)
+                    }
                 }
             }
             return
