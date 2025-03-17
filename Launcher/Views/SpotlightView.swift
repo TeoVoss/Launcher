@@ -205,6 +205,13 @@ struct ResultsList: View {
     }
 }
 
+// 创建服务引用类，避免在视图上下文外访问StateObject
+class ServiceReferences {
+    static let shared = ServiceReferences()
+    weak var searchService: SearchService?
+    weak var aiService: AIService?
+}
+
 // 主视图
 struct SpotlightView: View {
     @StateObject private var searchService = SearchService()
@@ -375,6 +382,9 @@ struct SpotlightView: View {
         }
         .onAppear {
             setupWindow()
+            // 保存服务引用
+            ServiceReferences.shared.searchService = searchService
+            ServiceReferences.shared.aiService = aiService
         }
     }
     
@@ -577,7 +587,17 @@ struct SpotlightView: View {
     func resetSearch() {
         searchText = ""
         selectedIndex = nil
-        searchService.search(query: "")
+        showingAIResponse = false
+        prompt = ""
+        
+        // 使用共享引用而不是直接访问StateObject
+        DispatchQueue.main.async {
+            // 使用ServiceReferences中保存的引用
+            ServiceReferences.shared.searchService?.clearResults()
+            ServiceReferences.shared.aiService?.cancelStream()
+        }
+        
+        adjustWindowHeight()
     }
     
     private func handleSubmit() {

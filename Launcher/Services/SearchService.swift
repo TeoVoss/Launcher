@@ -163,4 +163,11 @@ class SearchService: ObservableObject {
     func openResult(_ result: SearchResult) {
         NSWorkspace.shared.open(URL(fileURLWithPath: result.path))
     }
+    
+    func clearResults() {
+        DispatchQueue.main.async {
+            self.searchResults = []
+            self.categories = []
+        }
+    }
 } 
