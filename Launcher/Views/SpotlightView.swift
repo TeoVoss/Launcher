@@ -216,6 +216,7 @@ struct SpotlightView: View {
     @State private var height: CGFloat = 60
     @State private var prompt: String = ""
     @Environment(\.scenePhase) var scenePhase
+    @State private var aiResponseView: AIResponseView? = nil
     
     private var shouldShowAIOption: Bool {
         searchText.count >= 3
@@ -258,6 +259,9 @@ struct SpotlightView: View {
                         DispatchQueue.main.async {
                             adjustWindowHeightWithContent(contentHeight: contentHeight)
                         }
+                    },
+                    onViewCreated: { view in
+                        aiResponseView = view
                     }
                 )
             } else if !searchText.isEmpty {
@@ -579,28 +583,29 @@ struct SpotlightView: View {
     
     private func handleSubmit() {
         if showingAIResponse {
-            // 如果已经在 AI 对话界面，且搜索文本有变化，则重新请求
-            if searchText != prompt {
-                prompt = searchText
-                aiService.cancelStream()
+            // 如果已经在 AI 对话界面，则新增一轮对话
+            prompt = searchText
+            
+            // 重置高度到初始状态
+            let baseHeight: CGFloat = 60
+            let initialHeight = baseHeight + 150 // 搜索框高度 + 初始内容高度
+            height = initialHeight
+            
+            // 应用新高度到窗口
+            DispatchQueue.main.async {
+                if let window = NSApp.keyWindow {
+                    var frame = window.frame
+                    let oldHeight = frame.size.height
+                    frame.origin.y += (oldHeight - initialHeight)
+                    frame.size.height = initialHeight
+                    window.setFrame(frame, display: true, animate: false)
+                }
                 
-                // 重置高度到初始状态
-                let baseHeight: CGFloat = 60
-                let initialHeight = baseHeight + 150 // 搜索框高度 + 初始内容高度
-                height = initialHeight
-                
-                // 应用新高度到窗口
-                DispatchQueue.main.async {
-                    if let window = NSApp.keyWindow {
-                        var frame = window.frame
-                        let oldHeight = frame.size.height
-                        frame.origin.y += (oldHeight - initialHeight)
-                        frame.size.height = initialHeight
-                        window.setFrame(frame, display: true, animate: false)
-                    }
-                    
-                    // 重新请求
-                    Task { @MainActor in
+                // 使用视图引用调用sendRequest方法
+                Task { @MainActor in
+                    if let view = aiResponseView {
+                        await view.sendRequest()
+                    } else {
                         await aiService.streamChat(prompt: searchText)
                     }
                 }
@@ -629,6 +634,8 @@ struct SpotlightView: View {
         if showingAIResponse {
             showingAIResponse = false
             aiService.cancelStream()
+            // 清除对话历史
+            aiService.clearConversation()
             searchText = ""
             adjustWindowHeight()
         } else if let window = NSApp.keyWindow {

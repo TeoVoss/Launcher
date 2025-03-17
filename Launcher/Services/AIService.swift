@@ -1,9 +1,19 @@
 import Foundation
 
+// 创建消息结构体，符合Equatable协议
+struct ChatMessage: Equatable, Identifiable {
+    let id = UUID()
+    let role: String
+    var content: String
+}
+
 @MainActor
 class AIService: ObservableObject {
     @Published var isStreaming = false
     @Published var currentResponse = ""
+    // 使用结构体数组替代元组数组
+    @Published var conversationHistory: [ChatMessage] = []
+    @Published var activeResponseIndex: Int? = nil
     
     private let endpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
     private let apiKey = "sk-d2cfb2a428af4e36a1ae89dda611d74b"
@@ -19,31 +29,45 @@ class AIService: ObservableObject {
         session = nil
         isStreaming = false
         buffer = ""
+        activeResponseIndex = nil
     }
     
     func streamChat(prompt: String) async {
         isStreaming = true
-        currentResponse = ""
         buffer = ""
         
+        conversationHistory.append(ChatMessage(role: "user", content: prompt))
+        
+        conversationHistory.append(ChatMessage(role: "assistant", content: ""))
+        activeResponseIndex = conversationHistory.count - 1
+        
         guard let url = URL(string: endpoint) else {
-            currentResponse = "错误：无效的 URL"
+            if let index = activeResponseIndex {
+                conversationHistory[index].content = "错误：无效的 URL"
+            }
             isStreaming = false
+            activeResponseIndex = nil
             return
+        }
+        
+        var messages: [[String: Any]] = [
+            [
+                "role": "system",
+                "content": "请用这样的风格回答他：简洁、生动。请基于事实回答，不要捏造"
+            ]
+        ]
+        
+        for i in 0..<conversationHistory.count-1 {
+            let message = conversationHistory[i]
+            messages.append([
+                "role": message.role,
+                "content": message.content
+            ])
         }
         
         let requestBody: [String: Any] = [
             "model": model,
-            "messages": [
-                [
-                    "role": "system",
-                    "content": "请用这样的风格回答他：简洁、生动。请基于事实回答，不要捏造"
-                ],
-                [
-                    "role": "user",
-                    "content": prompt
-                ]
-            ],
+            "messages": messages,
             "stream": true
         ]
         
@@ -55,8 +79,11 @@ class AIService: ObservableObject {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         } catch {
-            currentResponse = "错误：请求体序列化失败"
+            if let index = activeResponseIndex {
+                conversationHistory[index].content = "错误：请求体序列化失败"
+            }
             isStreaming = false
+            activeResponseIndex = nil
             return
         }
         
@@ -81,6 +108,11 @@ class AIService: ObservableObject {
                     }
                     
                     self.buffer += content
+                    
+                    if let index = self.activeResponseIndex {
+                        self.conversationHistory[index].content = self.buffer
+                    }
+                    
                     self.currentResponse = self.buffer
                 }
             },
@@ -88,15 +120,22 @@ class AIService: ObservableObject {
                 Task { @MainActor [weak self] in
                     guard let self = self else { return }
                     self.isStreaming = false
+                    self.activeResponseIndex = nil
+                    self.buffer = ""
                 }
             },
             error: { [weak self] error in
                 Task { @MainActor [weak self] in
                     guard let self = self else { return }
+                    
                     if (error as NSError).code != NSURLErrorCancelled {
-                        self.currentResponse = "错误：\(error.localizedDescription)"
+                        if let index = self.activeResponseIndex {
+                            self.conversationHistory[index].content = "错误：\(error.localizedDescription)"
+                        }
                     }
+                    
                     self.isStreaming = false
+                    self.activeResponseIndex = nil
                 }
             }
         )
@@ -104,6 +143,12 @@ class AIService: ObservableObject {
         session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
         dataTask = session?.dataTask(with: request)
         dataTask?.resume()
+    }
+    
+    func clearConversation() {
+        conversationHistory = []
+        currentResponse = ""
+        activeResponseIndex = nil
     }
 }
 
@@ -124,7 +169,6 @@ class StreamDelegate: NSObject, URLSessionDataDelegate {
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         buffer.append(data)
         
-        // 尝试按行分割并处理数据
         while let newlineIndex = buffer.firstIndex(of: UInt8(ascii: "\n")) {
             let lineData = buffer[..<newlineIndex]
             if !lineData.isEmpty {
@@ -138,7 +182,6 @@ class StreamDelegate: NSObject, URLSessionDataDelegate {
         if let error = error {
             onError(error)
         } else {
-            // 处理缓冲区中剩余的数据
             if !buffer.isEmpty {
                 onReceive(buffer)
             }
