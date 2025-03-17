@@ -78,7 +78,8 @@ class AIService: ObservableObject {
         let requestBody: [String: Any] = [
             "model": model,
             "messages": messages,
-            "stream": true
+            "stream": true,
+            "enable_search": true
         ]
         
         var request = URLRequest(url: url)
