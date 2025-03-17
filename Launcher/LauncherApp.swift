@@ -26,6 +26,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     var window: NSWindow?
     private var hotKey: HotKey?
     private var spotlightView: SpotlightView?
+    private var windowDelegate: WindowDelegate?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 设置状态栏图标
@@ -89,10 +90,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             contentView.layer?.masksToBounds = true
         }
         
-        // 设置窗口代理
-        window.delegate = WindowDelegate(onWindowResignKey: { [weak self] in
+        // 设置窗口代理（使用强引用）
+        let delegate = WindowDelegate(onWindowResignKey: { [weak self] in
             self?.hideWindow()
         })
+        self.windowDelegate = delegate
+        window.delegate = delegate
         
         self.window = window
     }

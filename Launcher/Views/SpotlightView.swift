@@ -433,7 +433,7 @@ struct SpotlightView: View {
         let resultRowHeight: CGFloat = 44 // 每个结果行的高度
         let emptyStateHeight: CGFloat = 60 // 无结果状态的高度
         let aiViewMinHeight: CGFloat = 120 // AI 视图的最小高度
-        let aiViewDefaultHeight: CGFloat = 250 // AI 视图的默认高度
+        let _aiViewDefaultHeight: CGFloat = 250 // AI 视图的默认高度
         let aiViewMaxHeight: CGFloat = 500 // AI 视图的最大高度
         let padding: CGFloat = 16 // 上下内边距
         let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
