@@ -586,28 +586,15 @@ struct SpotlightView: View {
             // 如果已经在 AI 对话界面，则新增一轮对话
             prompt = searchText
             
-            // 重置高度到初始状态
-            let baseHeight: CGFloat = 60
-            let initialHeight = baseHeight + 150 // 搜索框高度 + 初始内容高度
-            height = initialHeight
+            // 保持现有窗口高度，避免闪烁
+            // 注意：这里不再重置窗口高度
             
-            // 应用新高度到窗口
-            DispatchQueue.main.async {
-                if let window = NSApp.keyWindow {
-                    var frame = window.frame
-                    let oldHeight = frame.size.height
-                    frame.origin.y += (oldHeight - initialHeight)
-                    frame.size.height = initialHeight
-                    window.setFrame(frame, display: true, animate: false)
-                }
-                
-                // 使用视图引用调用sendRequest方法
-                Task { @MainActor in
-                    if let view = aiResponseView {
-                        await view.sendRequest()
-                    } else {
-                        await aiService.streamChat(prompt: searchText)
-                    }
+            // 发送新请求
+            Task { @MainActor in
+                if let view = aiResponseView {
+                    await view.sendRequest()
+                } else {
+                    await aiService.streamChat(prompt: searchText)
                 }
             }
             return
