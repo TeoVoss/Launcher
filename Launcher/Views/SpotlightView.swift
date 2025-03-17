@@ -225,7 +225,6 @@ struct SpotlightView: View {
     private var displayResults: [SearchResult] {
         guard shouldShowAIOption else { return searchService.searchResults }
         
-        print("[SpotlightView] 添加 AI 选项到搜索结果")
         let aiResult = SearchResult(
             id: UUID(),
             name: "Ask AI: \(searchText)",

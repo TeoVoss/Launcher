@@ -27,17 +27,21 @@ class AIService: ObservableObject {
         dataTask = nil
         session?.invalidateAndCancel()
         session = nil
-        isStreaming = false
-        buffer = ""
-        activeResponseIndex = nil
+        
+        // 修复警告：使用DispatchQueue避免在视图更新周期内直接修改@Published属性
+        DispatchQueue.main.async {
+            self.isStreaming = false
+            self.buffer = ""
+            self.activeResponseIndex = nil
+        }
     }
     
     func streamChat(prompt: String) async {
         isStreaming = true
         buffer = ""
         
+        // 直接添加消息，而不是在异步队列中添加
         conversationHistory.append(ChatMessage(role: "user", content: prompt))
-        
         conversationHistory.append(ChatMessage(role: "assistant", content: ""))
         activeResponseIndex = conversationHistory.count - 1
         
@@ -57,12 +61,18 @@ class AIService: ObservableObject {
             ]
         ]
         
-        for i in 0..<conversationHistory.count-1 {
-            let message = conversationHistory[i]
-            messages.append([
-                "role": message.role,
-                "content": message.content
-            ])
+        // 因为我们已经直接添加了消息，所以这里可以安全地遍历conversationHistory
+        if conversationHistory.count > 0 {
+            for i in 0..<conversationHistory.count {
+                if i == conversationHistory.count - 1 && conversationHistory[i].role == "assistant" {
+                    continue
+                }
+                let message = conversationHistory[i]
+                messages.append([
+                    "role": message.role,
+                    "content": message.content
+                ])
+            }
         }
         
         let requestBody: [String: Any] = [
