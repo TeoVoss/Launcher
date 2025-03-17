@@ -17,26 +17,38 @@ struct AIResponseView: View {
             
             // AI 回复区域
             VStack(alignment: .leading, spacing: 8) {
-                ScrollView {
-                    Text(aiService.currentResponse.isEmpty ? "正在思考中..." : aiService.currentResponse)
-                        .font(.system(size: 14))
-                        .foregroundColor(aiService.currentResponse.isEmpty ? .secondary : .primary)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .animation(.easeInOut(duration: 0.2), value: aiService.currentResponse)
-                        .onChange(of: aiService.currentResponse) { _, newValue in
-                            print("[AIResponseView] 响应内容更新，长度：\(newValue.count)")
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if aiService.currentResponse.isEmpty {
+                                HStack(spacing: 4) {
+                                    Text("正在思考中...")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.secondary)
+                                    
+                                    ProgressView()
+                                        .scaleEffect(0.5)
+                                        .frame(height: 16)
+                                }
+                                .id("loading")
+                            }
+                            
+                            if !aiService.currentResponse.isEmpty {
+                                Text(aiService.currentResponse)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.primary)
+                                    .textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .animation(.easeInOut(duration: 0.2), value: aiService.currentResponse)
+                                    .id("response")
+                            }
                         }
-                }
-                
-                // 加载动画始终显示在底部
-                if aiService.isStreaming {
-                    HStack {
-                        ProgressView()
-                            .scaleEffect(0.5)
-                            .frame(height: 16)
-                        Spacer()
+                        .onChange(of: aiService.currentResponse) { _, _ in
+                            withAnimation {
+                                proxy.scrollTo("response", anchor: .bottom)
+                            }
+                        }
                     }
                 }
             }

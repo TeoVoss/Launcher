@@ -214,6 +214,7 @@ struct SpotlightView: View {
     @State private var isSearchFocused = false
     @State private var showingAIResponse = false
     @State private var height: CGFloat = 60
+    @State private var prompt: String = ""
     @Environment(\.scenePhase) var scenePhase
     
     private var shouldShowAIOption: Bool {
@@ -411,8 +412,8 @@ struct SpotlightView: View {
         let maxResultsHeight: CGFloat = 500 // 最大结果列表高度
         let resultRowHeight: CGFloat = 44 // 每个结果行的高度
         let emptyStateHeight: CGFloat = 60 // 无结果状态的高度
-        let aiViewInitialHeight: CGFloat = 300 // AI 视图的初始高度
-        let aiViewMaxHeight: CGFloat = 600 // AI 视图的最大高度
+        let aiViewInitialHeight: CGFloat = 400 // AI 视图的初始高度
+        let aiViewMaxHeight: CGFloat = 800 // AI 视图的最大高度
         let padding: CGFloat = 16 // 上下内边距
         
         if showingAIResponse {
@@ -424,7 +425,7 @@ struct SpotlightView: View {
                 let responseLength = aiService.currentResponse.count
                 let estimatedHeight = min(
                     aiViewMaxHeight,
-                    max(aiViewInitialHeight, CGFloat(responseLength) / 3)
+                    max(aiViewInitialHeight, CGFloat(responseLength) / 2)
                 )
                 height = baseHeight + estimatedHeight
             }
@@ -452,10 +453,23 @@ struct SpotlightView: View {
     }
     
     private func handleSubmit() {
+        if showingAIResponse {
+            // 如果已经在 AI 对话界面，且搜索文本有变化，则重新请求
+            if searchText != prompt {
+                prompt = searchText
+                aiService.cancelStream()
+                Task { @MainActor in
+                    await aiService.streamChat(prompt: searchText)
+                }
+            }
+            return
+        }
+        
         if let selectedIndex = selectedIndex, selectedIndex < displayResults.count {
             let result = displayResults[selectedIndex]
             if result.type == .ai {
                 Task { @MainActor in
+                    prompt = searchText
                     showingAIResponse = true
                     adjustWindowHeight()
                 }
@@ -472,6 +486,7 @@ struct SpotlightView: View {
         if showingAIResponse {
             showingAIResponse = false
             aiService.cancelStream()
+            searchText = ""
             adjustWindowHeight()
         } else if let window = NSApp.keyWindow {
             window.close()
@@ -481,6 +496,7 @@ struct SpotlightView: View {
     private func handleItemClick(_ result: SearchResult) {
         if result.type == .ai {
             Task { @MainActor in
+                prompt = searchText
                 showingAIResponse = true
                 adjustWindowHeight()
             }

@@ -13,7 +13,6 @@ class AIService: ObservableObject {
     private var dataTask: URLSessionDataTask?
     
     func cancelStream() {
-        print("[AIService] 取消流式请求")
         dataTask?.cancel()
         dataTask = nil
         session?.invalidateAndCancel()
@@ -23,13 +22,11 @@ class AIService: ObservableObject {
     }
     
     func streamChat(prompt: String) async {
-        print("[AIService] 开始流式请求")
         isStreaming = true
         currentResponse = ""
         buffer = ""
         
         guard let url = URL(string: endpoint) else {
-            print("[AIService] 错误：无效的 URL")
             currentResponse = "错误：无效的 URL"
             isStreaming = false
             return
@@ -57,57 +54,52 @@ class AIService: ObservableObject {
         
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-            print("[AIService] 发送请求：\(String(data: request.httpBody!, encoding: .utf8) ?? "")")
         } catch {
-            print("[AIService] 错误：请求体序列化失败 - \(error.localizedDescription)")
             currentResponse = "错误：请求体序列化失败"
             isStreaming = false
             return
         }
         
-        let delegate = StreamDelegate { [weak self] data in
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                
-                // 处理 "data: " 前缀
-                let text = String(data: data, encoding: .utf8) ?? ""
-                if text.trimmingCharacters(in: .whitespaces) == "data: [DONE]" {
-                    return
+        let delegate = StreamDelegate(
+            onReceive: { [weak self] data in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    
+                    let text = String(data: data, encoding: .utf8) ?? ""
+                    if text.trimmingCharacters(in: .whitespaces) == "data: [DONE]" {
+                        return
+                    }
+                    
+                    let jsonText = text.hasPrefix("data: ") ? String(text.dropFirst(6)) : text
+                    
+                    guard let jsonData = jsonText.data(using: .utf8),
+                          let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                          let choices = json["choices"] as? [[String: Any]],
+                          let delta = choices.first?["delta"] as? [String: Any],
+                          let content = delta["content"] as? String else {
+                        return
+                    }
+                    
+                    self.buffer += content
+                    self.currentResponse = self.buffer
                 }
-                
-                let jsonText = text.hasPrefix("data: ") ? String(text.dropFirst(6)) : text
-                
-                guard let jsonData = jsonText.data(using: .utf8),
-                      let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-                      let choices = json["choices"] as? [[String: Any]],
-                      let delta = choices.first?["delta"] as? [String: Any],
-                      let content = delta["content"] as? String else {
-                    return
+            },
+            completion: { [weak self] in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    self.isStreaming = false
                 }
-                
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "HH:mm:ss"
-                let timestamp = dateFormatter.string(from: Date())
-                print("[AIService] [\(timestamp)] 解析到内容：'\(content)'")
-                self.buffer += content
-                self.currentResponse = self.buffer
-            }
-        } completion: { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                self.isStreaming = false
-                print("[AIService] 请求结束")
-            }
-        } error: { [weak self] error in
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                print("[AIService] 错误：\(error.localizedDescription)")
-                if (error as NSError).code != NSURLErrorCancelled {
-                    self.currentResponse = "错误：\(error.localizedDescription)"
+            },
+            error: { [weak self] error in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    if (error as NSError).code != NSURLErrorCancelled {
+                        self.currentResponse = "错误：\(error.localizedDescription)"
+                    }
+                    self.isStreaming = false
                 }
-                self.isStreaming = false
             }
-        }
+        )
         
         session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
         dataTask = session?.dataTask(with: request)
