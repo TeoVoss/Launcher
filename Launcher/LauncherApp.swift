@@ -9,46 +9,144 @@ import SwiftUI
 import HotKey
 import AppKit
 
+// 单例管理器，保存全局状态
+class AppManager {
+    static let shared = AppManager()
+    
+    private var _settingsManager: SettingsManager?
+    
+    private init() {}
+    
+    // 线程安全地获取设置管理器
+    @MainActor
+    func getSettingsManager() -> SettingsManager {
+        if _settingsManager == nil {
+            _settingsManager = SettingsManager()
+        }
+        return _settingsManager!
+    }
+}
+
 @main
 struct LauncherApp: App {
+    // 使用SwiftUI标准方式声明应用代理
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
+    // 应用场景
     var body: some Scene {
+        // 设置窗口场景
         Settings {
-            EmptyView()
+            NavigationView {
+                SettingsViewLoader()
+            }
+        }
+        
+        // 添加一个空的窗口组，避免SwiftUI自动创建窗口
+        WindowGroup {
+            EmptyView().frame(width: 0, height: 0).hidden()
         }
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
+// 专门用于加载设置视图的组件
+struct SettingsViewLoader: View {
+    @State private var settingsManager: SettingsManager?
+    
+    var body: some View {
+        Group {
+            if let manager = settingsManager {
+                SettingsView(settingsManager: manager)
+            } else {
+                ProgressView()
+                    .onAppear {
+                        Task { @MainActor in
+                            settingsManager = AppManager.shared.getSettingsManager()
+                        }
+                    }
+            }
+        }
+    }
+}
+
+// 应用代理类
+class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     var popover: NSPopover?
     var window: NSWindow?
     private var hotKey: HotKey?
     private var spotlightView: SpotlightView?
     private var windowDelegate: WindowDelegate?
+    private var aiService: AIService?
     
+    // 标准的应用启动方法
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // 设置状态栏图标
+        // 在主线程上异步初始化UI组件
+        Task { @MainActor in
+            // 获取设置
+            let settingsManager = AppManager.shared.getSettingsManager()
+            
+            // 初始化AI服务
+            self.aiService = AIService(settingsManager: settingsManager)
+            
+            // 设置UI组件
+            setupStatusBar()
+            setupHotKey()
+            setupMainWindow()
+            
+            // 设置为辅助应用模式
+            NSApp.setActivationPolicy(.accessory)
+        }
+    }
+    
+    private func setupStatusBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem?.button {
             button.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Launcher")
+            
+            // 创建菜单
+            let menu = NSMenu()
+            
+            // 添加设置菜单项
+            let settingsItem = NSMenuItem(title: "设置", action: #selector(openSettings), keyEquivalent: ",")
+            settingsItem.target = self
+            menu.addItem(settingsItem)
+            
+            // 添加分隔线
+            menu.addItem(NSMenuItem.separator())
+            
+            // 添加退出菜单项
+            let quitItem = NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+            menu.addItem(quitItem)
+            
+            // 设置菜单和操作
+            statusItem?.menu = menu
+            button.action = #selector(statusItemClicked)
+            button.target = self
         }
+    }
+    
+    @objc private func statusItemClicked(sender: NSStatusBarButton) {
+        guard let event = NSApp.currentEvent else { return }
         
-        // 创建主窗口
-        setupMainWindow()
-        
-        // 设置全局快捷键
-        setupHotKey()
-        
-        // 注册点击事件
-        statusItem?.button?.action = #selector(toggleWindow)
-        
-        // 确保应用在后台运行，但不显示在Dock
-        NSApp.setActivationPolicy(.accessory)
+        if event.type == .rightMouseUp {
+            // 右键点击显示菜单
+            statusItem?.button?.performClick(nil)
+        } else {
+            // 左键点击显示窗口
+            toggleWindow()
+        }
+    }
+    
+    @objc private func openSettings() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
     
     private func setupMainWindow() {
+        // 确保AIService已初始化
+        guard let aiService = self.aiService else { return }
+        
         // 创建窗口
         let window = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 680, height: 44),
@@ -70,13 +168,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         window.hasShadow = true
         window.animationBehavior = .utilityWindow
         
-        // 允许窗口调整大小但隐藏标题栏按钮
+        // 隐藏标题栏按钮
         window.standardWindowButton(.zoomButton)?.isHidden = true
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.closeButton)?.isHidden = true
         
         // 设置内容视图
-        let spotlightView = SpotlightView()
+        let spotlightView = SpotlightView(aiService: aiService)
         self.spotlightView = spotlightView
         window.contentView = NSHostingView(
             rootView: spotlightView
@@ -90,7 +188,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             contentView.layer?.masksToBounds = true
         }
         
-        // 设置窗口代理（使用强引用）
+        // 设置窗口代理
         let delegate = WindowDelegate(onWindowResignKey: { [weak self] in
             self?.hideWindow()
         })
@@ -101,12 +199,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     }
     
     private func hideWindow() {
-        guard let window = self.window else { return }
+        guard let window = self.window, let spotlightView = self.spotlightView else { return }
         
-        // 先重置搜索状态
-        spotlightView?.resetSearch()
+        // 重置搜索状态
+        spotlightView.resetSearch()
         
-        // 隐藏窗口时重置大小
+        // 重置窗口大小并隐藏
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -141,7 +239,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                 window.setFrameOrigin(NSPoint(x: x, y: y))
             }
             
-            // 先设置初始大小，避免从上次的大小开始动画
+            // 显示窗口并设置焦点
             window.setContentSize(NSSize(width: 680, height: 44))
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)

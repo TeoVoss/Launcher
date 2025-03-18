@@ -215,7 +215,7 @@ class ServiceReferences {
 // 主视图
 struct SpotlightView: View {
     @StateObject private var searchService = SearchService()
-    @StateObject private var aiService = AIService()
+    @ObservedObject var aiService: AIService
     @State private var searchText = ""
     @State private var selectedIndex: Int?
     @State private var isSearchFocused = false
@@ -224,6 +224,10 @@ struct SpotlightView: View {
     @State private var prompt: String = ""
     @Environment(\.scenePhase) var scenePhase
     @State private var aiResponseView: AIResponseView? = nil
+    
+    init(aiService: AIService) {
+        self.aiService = aiService
+    }
     
     private var shouldShowAIOption: Bool {
         searchText.count >= 3
@@ -443,7 +447,7 @@ struct SpotlightView: View {
         let resultRowHeight: CGFloat = 44 // 每个结果行的高度
         let emptyStateHeight: CGFloat = 60 // 无结果状态的高度
         let aiViewMinHeight: CGFloat = 120 // AI 视图的最小高度
-        let _aiViewDefaultHeight: CGFloat = 250 // AI 视图的默认高度
+        let aiViewDefaultHeight: CGFloat = 250 // AI 视图的默认高度
         let aiViewMaxHeight: CGFloat = 500 // AI 视图的最大高度
         let padding: CGFloat = 16 // 上下内边距
         let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
@@ -454,49 +458,15 @@ struct SpotlightView: View {
         if showingAIResponse {
             // AI 视图显示时，根据内容长度计算高度
             if aiService.currentResponse.isEmpty {
-                // 初始高度使用最小高度
-                newHeight = baseHeight + aiViewMinHeight
+                newHeight += aiViewDefaultHeight // 使用默认高度
             } else {
-                // 根据内容长度计算高度
+                // 根据响应长度计算合适的高度
                 let responseLength = aiService.currentResponse.count
-                
-                // 动态计算高度
-                var dynamicHeight: CGFloat
-                
-                if responseLength < 100 {
-                    // 较短的回复使用最小高度
-                    dynamicHeight = aiViewMinHeight
-                } else if responseLength < 300 {
-                    // 中等长度的回复
-                    dynamicHeight = aiViewMinHeight + CGFloat(responseLength - 100) / 4
-                } else {
-                    // 较长的回复根据字符数动态计算
-                    let averageCharPerLine: CGFloat = 30 // 假设每行平均 30 个字符
-                    let lineHeight: CGFloat = 22 // 每行文字的高度
-                    let promptHeight: CGFloat = 30 // 问题文本的高度
-                    let estimatedLines = ceil(CGFloat(responseLength) / averageCharPerLine)
-                    dynamicHeight = min(
-                        aiViewMaxHeight,
-                        promptHeight + estimatedLines * lineHeight + padding
-                    )
-                }
-                
-                newHeight = min(baseHeight + dynamicHeight, maxWindowHeight)
-                
-                // 窗口逐步增高，避免突然变高
-                if height > newHeight {
-                    // 如果当前高度已经更高，则保持不变
-                    return
-                } else if newHeight - height < 20 {
-                    // 变化不大时不调整
-                    return
-                }
+                let estimatedHeight = max(aiViewMinHeight, min(CGFloat(responseLength) * 0.5, aiViewMaxHeight))
+                newHeight += estimatedHeight
             }
-        } else if searchText.isEmpty {
-            // 搜索文本为空时，高度只包含搜索框
-            newHeight = baseHeight
-        } else {
-            // 搜索结果显示时的高度
+        } else if !displayResults.isEmpty {
+            // 显示搜索结果时
             if displayResults.isEmpty {
                 // 无搜索结果时，显示一个空状态
                 newHeight = baseHeight + emptyStateHeight

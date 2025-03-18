@@ -15,12 +15,16 @@ class AIService: ObservableObject {
     @Published var conversationHistory: [ChatMessage] = []
     @Published var activeResponseIndex: Int? = nil
     
-    private let endpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
-    private let apiKey = "sk-d2cfb2a428af4e36a1ae89dda611d74b"
-    private let model = "qwen-max-latest"
     private var buffer = ""
     private var session: URLSession?
     private var dataTask: URLSessionDataTask?
+    
+    // 将settingsManager作为依赖注入
+    private let settingsManager: SettingsManager
+    
+    init(settingsManager: SettingsManager) {
+        self.settingsManager = settingsManager
+    }
     
     func cancelStream() {
         dataTask?.cancel()
@@ -44,6 +48,11 @@ class AIService: ObservableObject {
         conversationHistory.append(ChatMessage(role: "user", content: prompt))
         conversationHistory.append(ChatMessage(role: "assistant", content: ""))
         activeResponseIndex = conversationHistory.count - 1
+        
+        // 从设置中获取endpoint、apiKey和model
+        let endpoint = settingsManager.aiSettings.endpoint
+        let apiKey = settingsManager.aiSettings.apiKey
+        let model = settingsManager.aiSettings.model
         
         guard let url = URL(string: endpoint) else {
             if let index = activeResponseIndex {
