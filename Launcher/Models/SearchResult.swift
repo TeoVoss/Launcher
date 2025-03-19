@@ -28,6 +28,7 @@ enum SearchResultType {
     case system
     case calculator
     case suggestion
+    case shortcut
     
     var systemImage: String {
         switch self {
@@ -39,6 +40,7 @@ enum SearchResultType {
         case .system: return "gearshape.fill"
         case .suggestion: return "magnifyingglass"
         case .ai: return "brain.fill"
+        case .shortcut: return "command.square.fill"
         }
     }
 }
@@ -68,6 +70,7 @@ extension SearchResultType {
         case .calculator: return "计算器"
         case .suggestion: return "建议"
         case .ai: return "AI"
+        case .shortcut: return "快捷指令"
         }
     }
     
@@ -76,11 +79,12 @@ extension SearchResultType {
         case .calculator: return 0
         case .application: return 1
         case .system: return 2
-        case .document: return 3
-        case .file: return 4
-        case .folder: return 5
-        case .suggestion: return 6
-        case .ai: return 7
+        case .shortcut: return 3
+        case .document: return 4
+        case .file: return 5
+        case .folder: return 6
+        case .suggestion: return 7
+        case .ai: return 8
         }
     }
 } 

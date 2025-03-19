@@ -156,6 +156,68 @@ struct ResultRow: View {
     }
 }
 
+// 文件搜索视图
+struct FileSearchView: View {
+    @ObservedObject var searchService: SearchService
+    @Binding var searchText: String
+    @Binding var selectedIndex: Int?
+    var onResultSelected: (SearchResult) -> Void
+    var onResultsChanged: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            if searchService.fileSearchResults.isEmpty {
+                // 使用ScrollView保持布局结构一致，避免从无结果到有结果时的布局跳变
+                ScrollView {
+                    VStack {
+                        Text(searchText.isEmpty ? "请输入搜索关键词" : "无匹配文件")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 14))
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, 16)
+                    }
+                    .frame(minHeight: 120) // 设置最小高度，避免内容过于居中
+                }
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(searchService.fileSearchResults.enumerated()), id: \.element.id) { index, result in
+                                ResultRow(result: result, isSelected: index == selectedIndex)
+                                    .id(index)
+                                    .onTapGesture {
+                                        onResultSelected(result)
+                                    }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        .onChange(of: selectedIndex) { _, newIndex in
+                            if let index = newIndex {
+                                withAnimation {
+                                    proxy.scrollTo(index, anchor: .center)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .onChange(of: searchText) { _, newValue in
+            searchService.searchFiles(query: newValue)
+            selectedIndex = searchService.fileSearchResults.isEmpty ? nil : 0
+            onResultsChanged()
+        }
+        .onAppear {
+            searchService.searchFiles(query: searchText)
+            selectedIndex = searchService.fileSearchResults.isEmpty ? nil : 0
+            onResultsChanged()
+        }
+        .onChange(of: searchService.fileSearchResults) { _, _ in
+            onResultsChanged()
+        }
+    }
+}
+
 // 结果列表组件
 struct ResultsList: View {
     let categories: [SearchResultCategory]
@@ -220,6 +282,7 @@ struct SpotlightView: View {
     @State private var selectedIndex: Int?
     @State private var isSearchFocused = false
     @State private var showingAIResponse = false
+    @State private var showingFileSearch = false // 新增：是否显示文件搜索视图
     @State private var height: CGFloat = 60
     @State private var prompt: String = ""
     @Environment(\.scenePhase) var scenePhase
@@ -234,18 +297,40 @@ struct SpotlightView: View {
     }
     
     private var displayResults: [SearchResult] {
-        guard shouldShowAIOption else { return searchService.searchResults }
+        var results: [SearchResult] = []
         
-        let aiResult = SearchResult(
-            id: UUID(),
-            name: "Ask AI: \(searchText)",
-            path: "",
-            type: .ai,
-            category: "AI",
-            icon: NSImage(systemSymbolName: "brain.fill", accessibilityDescription: nil) ?? NSImage(),
-            subtitle: "使用 AI 回答问题"
-        )
-        return [aiResult] + searchService.searchResults
+        // 先添加AI入口
+        if shouldShowAIOption {
+            let aiResult = SearchResult(
+                id: UUID(),
+                name: "Ask AI: \(searchText)",
+                path: "",
+                type: .ai,
+                category: "AI",
+                icon: NSImage(systemSymbolName: "brain.fill", accessibilityDescription: nil) ?? NSImage(),
+                subtitle: "使用 AI 回答问题"
+            )
+            results.append(aiResult)
+        }
+        
+        // 添加应用程序和快捷指令搜索结果
+        results.append(contentsOf: searchService.searchResults)
+        
+        // 最后添加文件搜索入口
+        if !searchText.isEmpty {
+            let fileSearchResult = SearchResult(
+                id: UUID(),
+                name: "搜索文件: \(searchText)",
+                path: "",
+                type: .file,
+                category: "文件搜索",
+                icon: NSImage(systemSymbolName: "folder.fill", accessibilityDescription: nil) ?? NSImage(),
+                subtitle: "搜索本地文件"
+            )
+            results.append(fileSearchResult)
+        }
+        
+        return results
     }
     
     var body: some View {
@@ -272,6 +357,22 @@ struct SpotlightView: View {
                     },
                     onViewCreated: { view in
                         aiResponseView = view
+                    }
+                )
+            } else if showingFileSearch {
+                // 文件搜索二级视图
+                FileSearchView(
+                    searchService: searchService,
+                    searchText: $searchText,
+                    selectedIndex: $selectedIndex,
+                    onResultSelected: { result in
+                        searchService.openResult(result)
+                        if let window = NSApp.keyWindow {
+                            window.close()
+                        }
+                    },
+                    onResultsChanged: {
+                        adjustWindowHeight()
                     }
                 )
             } else if !searchText.isEmpty {
@@ -318,16 +419,14 @@ struct SpotlightView: View {
         .cornerRadius(8)
         .onChange(of: searchText) { _, newValue in
             UserDefaults.standard.set(searchText, forKey: "LastSearchText")
-            if !showingAIResponse {
+            if !showingAIResponse && !showingFileSearch {
                 searchService.search(query: newValue)
-                if shouldShowAIOption {
-                    selectedIndex = 0
-                }
+                selectedIndex = 0
                 // 当搜索文本为空时，重置窗口高度
                 if newValue.isEmpty {
                     resetWindowHeight()
                 } else {
-                    // 仅当不在AI视图时才调整窗口高度
+                    // 仅当不在AI视图和文件搜索视图时才调整窗口高度
                     adjustWindowHeight()
                 }
             }
@@ -341,7 +440,9 @@ struct SpotlightView: View {
             }
         }
         .onChange(of: searchService.searchResults) { _, _ in
-            adjustWindowHeight()
+            if !showingFileSearch {
+                adjustWindowHeight()
+            }
         }
         .onChange(of: aiService.currentResponse) { _, newValue in
             // 不再需要在这里调整高度，已由 onHeightChange 回调处理
@@ -363,10 +464,46 @@ struct SpotlightView: View {
                 }
             }
         }
+        .onChange(of: showingFileSearch) { _, newValue in
+            if newValue {
+                // 显示文件搜索视图时，重新搜索并确保UI状态正确
+                searchService.searchFiles(query: searchText)
+                // 稍作延迟，确保结果已加载
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    if !searchService.fileSearchResults.isEmpty && selectedIndex == nil {
+                        selectedIndex = 0
+                    }
+                    adjustWindowHeight()
+                }
+            } else {
+                // 返回主视图时，清除文件搜索结果
+                searchService.clearResults() // 清除当前文件搜索结果
+                searchService.search(query: searchText) // 重新搜索应用
+                selectedIndex = 0
+                adjustWindowHeight()
+            }
+        }
+        .onChange(of: searchService.fileSearchResults) { _, _ in
+            // 监听文件搜索结果变化，调整窗口高度
+            if showingFileSearch {
+                // 如果文件搜索结果变化，确保有选中状态
+                if !searchService.fileSearchResults.isEmpty && selectedIndex == nil {
+                    selectedIndex = 0
+                }
+                adjustWindowHeight()
+            }
+        }
         .onKeyPress(.escape) { [self] in
             if showingAIResponse {
                 showingAIResponse = false
                 aiService.cancelStream()
+                adjustWindowHeight()
+                return .handled
+            }
+            if showingFileSearch {
+                withAnimation {
+                    showingFileSearch = false
+                }
                 adjustWindowHeight()
                 return .handled
             }
@@ -382,19 +519,52 @@ struct SpotlightView: View {
             return .ignored
         }
         .onKeyPress(.upArrow) { [self] in
-            handleUpArrow()
+            if showingFileSearch {
+                if !searchService.fileSearchResults.isEmpty {
+                    if let currentIndex = selectedIndex {
+                        selectedIndex = max(0, currentIndex - 1)
+                    } else {
+                        selectedIndex = searchService.fileSearchResults.count - 1
+                    }
+                }
+            } else {
+                handleUpArrow()
+            }
             return .handled
         }
         .onKeyPress(.downArrow) { [self] in
-            handleDownArrow()
+            if showingFileSearch {
+                if !searchService.fileSearchResults.isEmpty {
+                    if let currentIndex = selectedIndex {
+                        selectedIndex = min(searchService.fileSearchResults.count - 1, currentIndex + 1)
+                    } else {
+                        selectedIndex = 0
+                    }
+                }
+            } else {
+                handleDownArrow()
+            }
             return .handled
         }
         .onKeyPress(.return) { [self] in
-            if let selectedIndex = selectedIndex,
-               selectedIndex >= 0,
-               selectedIndex < displayResults.count {
-                handleSubmit()
-                return .handled
+            if showingFileSearch {
+                if let selectedIndex = selectedIndex,
+                   selectedIndex >= 0,
+                   selectedIndex < searchService.fileSearchResults.count {
+                    let result = searchService.fileSearchResults[selectedIndex]
+                    searchService.openResult(result)
+                    if let window = NSApp.keyWindow {
+                        window.close()
+                    }
+                    return .handled
+                }
+            } else {
+                if let selectedIndex = selectedIndex,
+                   selectedIndex >= 0,
+                   selectedIndex < displayResults.count {
+                    handleSubmit()
+                    return .handled
+                }
             }
             return .ignored
         }
@@ -452,11 +622,46 @@ struct SpotlightView: View {
         let aiViewMinHeight: CGFloat = 120 // AI 视图的最小高度
         let aiViewDefaultHeight: CGFloat = 250 // AI 视图的默认高度
         let aiViewMaxHeight: CGFloat = 500 // AI 视图的最大高度
+        let fileSearchMinHeight: CGFloat = 120 // 文件搜索视图的最小高度
         let padding: CGFloat = 16 // 上下内边距
         let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
         let maxWindowHeight = min(screenHeight * 0.8, 800) // 窗口最大高度限制
         
         var newHeight: CGFloat = baseHeight
+        
+        // 特别为文件搜索视图调整高度逻辑，确保响应更快
+        if showingFileSearch {
+            if searchService.fileSearchResults.isEmpty {
+                // 无结果时使用最小高度
+                newHeight += fileSearchMinHeight
+            } else {
+                // 有结果时根据结果数量计算高度
+                let resultsCount = searchService.fileSearchResults.count
+                let contentHeight = min(CGFloat(resultsCount) * resultRowHeight + padding, maxResultsHeight)
+                newHeight += contentHeight
+            }
+            
+            // 避免频繁更新和高度抖动
+            if abs(newHeight - height) > 5 {
+                height = newHeight
+                
+                DispatchQueue.main.async {
+                    if let window = NSApp.keyWindow {
+                        var frame = window.frame
+                        let oldHeight = frame.size.height
+                        
+                        // 保持窗口顶部位置不变
+                        frame.origin.y += (oldHeight - newHeight)
+                        frame.size.height = newHeight
+                        
+                        // 使用非动画方式设置窗口大小
+                        window.setFrame(frame, display: true, animate: false)
+                    }
+                }
+            }
+            
+            return // 提前返回，避免执行后续代码
+        }
         
         // 当搜索文本为空时，强制设置为初始高度
         if searchText.isEmpty {
@@ -572,6 +777,7 @@ struct SpotlightView: View {
         searchText = ""
         selectedIndex = nil
         showingAIResponse = false
+        showingFileSearch = false
         prompt = ""
         
         // 使用共享引用而不是直接访问StateObject
@@ -611,6 +817,12 @@ struct SpotlightView: View {
                     showingAIResponse = true
                     adjustWindowHeight()
                 }
+            } else if result.type == .file && result.path.isEmpty {
+                // 如果是文件搜索入口
+                withAnimation {
+                    showingFileSearch = true
+                }
+                adjustWindowHeight()
             } else {
                 searchService.openResult(result)
                 if let window = NSApp.keyWindow {
@@ -628,6 +840,9 @@ struct SpotlightView: View {
             aiService.clearConversation()
             searchText = ""
             adjustWindowHeight()
+        } else if showingFileSearch {
+            showingFileSearch = false
+            adjustWindowHeight()
         } else if let window = NSApp.keyWindow {
             window.close()
         }
@@ -640,6 +855,12 @@ struct SpotlightView: View {
                 showingAIResponse = true
                 adjustWindowHeight()
             }
+        } else if result.type == .file && result.path.isEmpty {
+            // 如果是文件搜索入口
+            withAnimation {
+                showingFileSearch = true
+            }
+            adjustWindowHeight()
         } else {
             searchService.openResult(result)
             if let window = NSApp.keyWindow {
