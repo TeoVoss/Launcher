@@ -255,7 +255,7 @@ struct SpotlightView: View {
                 onClear: {
                     searchText = ""
                     selectedIndex = nil
-                    adjustWindowHeight()
+                    resetWindowHeight()
                 }
             )
             .frame(height: 60)
@@ -284,6 +284,7 @@ struct SpotlightView: View {
                             .font(.system(size: 14))
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 20)
+                            .frame(height: 60) // 设置最小高度，避免窗口过短
                     } else {
                         ScrollViewReader { proxy in
                             ScrollView {
@@ -316,7 +317,20 @@ struct SpotlightView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .cornerRadius(8)
         .onChange(of: searchText) { _, newValue in
-            handleSearchTextChange(newValue)
+            UserDefaults.standard.set(searchText, forKey: "LastSearchText")
+            if !showingAIResponse {
+                searchService.search(query: newValue)
+                if shouldShowAIOption {
+                    selectedIndex = 0
+                }
+                // 当搜索文本为空时，重置窗口高度
+                if newValue.isEmpty {
+                    resetWindowHeight()
+                } else {
+                    // 仅当不在AI视图时才调整窗口高度
+                    adjustWindowHeight()
+                }
+            }
         }
         .onChange(of: scenePhase) { _, newPhase in
             handleScenePhaseChange(newPhase)
@@ -392,17 +406,6 @@ struct SpotlightView: View {
         }
     }
     
-    private func handleSearchTextChange(_ newValue: String) {
-        UserDefaults.standard.set(searchText, forKey: "LastSearchText")
-        if !showingAIResponse {
-            searchService.search(query: newValue)
-            if shouldShowAIOption {
-                selectedIndex = 0
-            }
-        }
-        adjustWindowHeight()
-    }
-    
     private func handleScenePhaseChange(_ newPhase: ScenePhase) {
         if newPhase == .inactive || newPhase == .background {
             if let window = NSApp.keyWindow ?? NSApp.windows.first {
@@ -455,7 +458,10 @@ struct SpotlightView: View {
         
         var newHeight: CGFloat = baseHeight
         
-        if showingAIResponse {
+        // 当搜索文本为空时，强制设置为初始高度
+        if searchText.isEmpty {
+            newHeight = baseHeight
+        } else if showingAIResponse {
             // AI 视图显示时，根据内容长度计算高度
             if aiService.currentResponse.isEmpty {
                 newHeight += aiViewDefaultHeight // 使用默认高度
@@ -481,6 +487,14 @@ struct SpotlightView: View {
                     return
                 }
             }
+        } else {
+            // 即使没有搜索关键词时，也设置一个最小高度
+            newHeight = max(baseHeight + emptyStateHeight, newHeight)
+        }
+        
+        // 如果搜索文本为空，始终使用初始高度
+        if searchText.isEmpty {
+            newHeight = baseHeight
         }
         
         // 如果高度发生了有意义的变化，才进行调整
@@ -647,6 +661,22 @@ struct SpotlightView: View {
             selectedIndex = min(displayResults.count - 1, currentIndex + 1)
         } else if !displayResults.isEmpty {
             selectedIndex = 0
+        }
+    }
+    
+    // 重置窗口高度为初始状态
+    private func resetWindowHeight() {
+        height = 60 // 重置为初始高度
+        
+        // 直接应用到窗口
+        DispatchQueue.main.async {
+            if let window = NSApp.keyWindow {
+                var frame = window.frame
+                let oldHeight = frame.size.height
+                frame.origin.y += (oldHeight - 60)
+                frame.size.height = 60
+                window.setFrame(frame, display: true, animate: false)
+            }
         }
     }
 }

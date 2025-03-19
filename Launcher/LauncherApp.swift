@@ -36,9 +36,8 @@ struct LauncherApp: App {
     var body: some Scene {
         // 设置窗口场景
         Settings {
-            NavigationView {
-                SettingsViewLoader()
-            }
+            SettingsViewLoader()
+                .frame(minWidth: 800, minHeight: 600)
         }
         
         // 添加一个空的窗口组，避免SwiftUI自动创建窗口

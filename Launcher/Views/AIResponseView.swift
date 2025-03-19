@@ -643,7 +643,11 @@ struct AIResponseView: View {
     private func updateTotalHeight() {
         let totalHeight = min(scrollViewHeight + 20, 500) // 滚动视图高度 + 上下内边距，最大高度限制
         
+        // 设置一个最小高度，即使内容很少也保持合理的窗口大小
+        let minHeight: CGFloat = 250
+        let effectiveHeight = max(totalHeight, minHeight)
+        
         // 通知父视图更新高度
-        onHeightChange?(totalHeight)
+        onHeightChange?(effectiveHeight)
     }
 } 

@@ -62,6 +62,7 @@ struct SettingsView: View {
                 .padding(.bottom, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(minWidth: 600)
         }
         .onAppear {
             // 加载当前设置
