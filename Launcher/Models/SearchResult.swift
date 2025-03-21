@@ -9,6 +9,20 @@ struct SearchResult: Identifiable, Hashable {
     let category: String
     let icon: NSImage
     let subtitle: String
+    let lastUsedDate: Date?
+    let relevanceScore: Int
+    
+    init(id: UUID, name: String, path: String, type: SearchResultType, category: String, icon: NSImage, subtitle: String, lastUsedDate: Date? = nil, relevanceScore: Int = 0) {
+        self.id = id
+        self.name = name
+        self.path = path
+        self.type = type
+        self.category = category
+        self.icon = icon
+        self.subtitle = subtitle
+        self.lastUsedDate = lastUsedDate
+        self.relevanceScore = relevanceScore
+    }
     
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
