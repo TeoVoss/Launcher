@@ -1,10 +1,36 @@
 import Foundation
 import AppKit
 
+// 应用信息结构体
+struct AppInfo: Identifiable {
+    let id = UUID()
+    let name: String
+    let localizedNames: [String]  // 存储多语言名称
+    let path: String
+    let bundleID: String?
+    let icon: NSImage
+    let lastUsedDate: Date?
+    let isSystemApp: Bool
+    
+    init(name: String, localizedNames: [String] = [], path: String, bundleID: String? = nil, icon: NSImage, lastUsedDate: Date? = nil, isSystemApp: Bool) {
+        self.name = name
+        self.localizedNames = localizedNames
+        self.path = path
+        self.bundleID = bundleID
+        self.icon = icon
+        self.lastUsedDate = lastUsedDate
+        self.isSystemApp = isSystemApp
+    }
+}
+
 class SearchService: ObservableObject {
     @Published var searchResults: [SearchResult] = []
     @Published var categories: [SearchResultCategory] = []
     @Published var fileSearchResults: [SearchResult] = []
+    
+    // 应用信息缓存
+    private var allApps: [AppInfo] = []
+    private var allShortcuts: [AppInfo] = []
     
     private let applicationCategory = "应用程序"
     private let shortcutsCategory = "快捷指令"
@@ -17,12 +43,19 @@ class SearchService: ObservableObject {
         "/Applications",
         "/System/Applications",
         "/System/Library/CoreServices/Finder.app",
-        "/System/Library/CoreServices/Finder.app/Contents/Applications"
+        "/System/Library/CoreServices/System Preferences.app",
+        "/System/Library/CoreServices/System Settings.app"
+    ]
+    
+    // 快捷指令存储目录
+    private let shortcutDirectories = [
+        "~/Library/Shortcuts",
+        "/private/var/mobile/Library/Shortcuts"
     ]
     
     init() {
         DispatchQueue.main.async {
-            self.setupMetadataQuery()
+            self.loadAllApps()
         }
     }
     
@@ -40,7 +73,582 @@ class SearchService: ObservableObject {
         }
     }
     
+    // 获取应用的多语言名称
+    private func getLocalizedAppNames(forPath path: String) -> [String] {
+        var localizedNames: [String] = []
+        
+        guard let bundle = Bundle(path: path) else {
+            return localizedNames
+        }
+        
+        // 获取主要本地化名称
+        if let displayName = bundle.localizedInfoDictionary?["CFBundleDisplayName"] as? String {
+            localizedNames.append(displayName)
+        } else if let bundleName = bundle.localizedInfoDictionary?["CFBundleName"] as? String {
+            localizedNames.append(bundleName)
+        }
+        
+        // 尝试获取主要Info.plist中的名称
+        if let displayName = bundle.infoDictionary?["CFBundleDisplayName"] as? String, !localizedNames.contains(displayName) {
+            localizedNames.append(displayName)
+        } else if let bundleName = bundle.infoDictionary?["CFBundleName"] as? String, !localizedNames.contains(bundleName) {
+            localizedNames.append(bundleName)
+        }
+        
+        // 获取不同语言版本的名称
+        let lprojPaths = (try? FileManager.default.contentsOfDirectory(at: URL(fileURLWithPath: bundle.bundlePath), includingPropertiesForKeys: nil, options: .skipsHiddenFiles)) ?? []
+        
+        for path in lprojPaths {
+            let pathExtension = path.pathExtension
+            if pathExtension.hasSuffix("lproj") {
+                let language = pathExtension.replacingOccurrences(of: ".lproj", with: "")
+                
+                // 尝试加载该语言的InfoPlist.strings
+                let stringsPath = path.appendingPathComponent("InfoPlist.strings")
+                if let strings = NSDictionary(contentsOf: stringsPath) {
+                    if let displayName = strings["CFBundleDisplayName"] as? String, !localizedNames.contains(displayName) {
+                        localizedNames.append(displayName)
+                    } else if let bundleName = strings["CFBundleName"] as? String, !localizedNames.contains(bundleName) {
+                        localizedNames.append(bundleName)
+                    }
+                }
+            }
+        }
+        
+        return localizedNames
+    }
+    
+    // 加载所有应用信息
+    private func loadAllApps() {
+        print("[SearchService] 开始加载应用信息...")
+        self.setupMetadataQuery()
+        
+        // 加载快捷指令
+        self.loadShortcutsUsingCLI()
+        
+        guard let metadataQuery = self.metadataQuery else {
+            print("[SearchService] 错误: 元数据查询对象为空")
+            return
+        }
+        
+        // 移除现有的观察者
+        NotificationCenter.default.removeObserver(self)
+        
+        // 应用类型谓词
+        let appTypePredicate = NSPredicate(format: "kMDItemContentType = 'com.apple.application-bundle'")
+        
+        // 合并谓词 - 只搜索应用程序，快捷指令通过CLI获取
+        metadataQuery.predicate = appTypePredicate
+        
+        print("[SearchService] 设置查询谓词: \(metadataQuery.predicate?.description ?? "无")")
+        
+        // 设置完成通知处理
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleInitialAppLoad),
+            name: .NSMetadataQueryDidFinishGathering,
+            object: metadataQuery
+        )
+        
+        print("[SearchService] 开始执行初始查询...")
+        metadataQuery.start()
+    }
+    
+    // 使用CLI命令获取快捷指令列表
+    private func loadShortcutsUsingCLI() {
+        print("[SearchService] 开始使用系统CLI获取快捷指令...")
+        
+        // 清空现有快捷指令
+        self.allShortcuts = []
+        
+        // 先尝试获取Shortcuts应用图标作为备选
+        let shortcutsAppIcon = getShortcutsAppIcon()
+        
+        // 尝试从数据库获取快捷指令和颜色信息
+        let shortcutsWithColor = readShortcutsFromDatabase()
+        
+        // 如果数据库读取成功且有结果，使用数据库信息
+        if !shortcutsWithColor.isEmpty {
+            print("[SearchService] 成功从数据库获取\(shortcutsWithColor.count)个快捷指令")
+            
+            for shortcutInfo in shortcutsWithColor {
+                let icon = createShortcutIcon(withColor: shortcutInfo.color)
+                
+                let commandPath = "shortcuts run \"\(shortcutInfo.name)\""
+                
+                let appInfo = AppInfo(
+                    name: shortcutInfo.name,
+                    localizedNames: [],
+                    path: commandPath,
+                    bundleID: nil,
+                    icon: shortcutInfo.icon ?? icon,
+                    lastUsedDate: nil,
+                    isSystemApp: false
+                )
+                self.allShortcuts.append(appInfo)
+            }
+            return
+        }
+        
+        // 执行 shortcuts list 命令
+        let task = Process()
+        let pipe = Pipe()
+        
+        task.standardOutput = pipe
+        task.standardError = pipe
+        task.arguments = ["list"]
+        
+        // 在macOS Ventura及以上版本，shortcuts命令在/usr/bin/目录下
+        let shortcutsPath = "/usr/bin/shortcuts"
+        
+        if FileManager.default.fileExists(atPath: shortcutsPath) {
+            task.executableURL = URL(fileURLWithPath: shortcutsPath)
+            
+            do {
+                print("[SearchService] 执行命令: shortcuts list")
+                try task.run()
+                
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                if let output = String(data: data, encoding: .utf8) {
+                    if output.isEmpty {
+                        print("[SearchService] 命令未返回任何快捷指令")
+                        loadDefaultShortcuts()
+                    } else {
+                        // 解析输出，格式通常为每行一个快捷指令名
+                        let shortcuts = parseShortcutsOutput(output)
+                        print("[SearchService] 成功获取\(shortcuts.count)个快捷指令")
+                        
+                        for name in shortcuts {
+                            // 创建一个快捷指令图标 - 如果有Shortcuts应用图标则使用它
+                            let icon = shortcutsAppIcon ?? createShortcutIcon(withColor: "blue")
+                            
+                            let commandPath = "shortcuts run \"\(name)\""
+                            
+                            let appInfo = AppInfo(
+                                name: name,
+                                localizedNames: [],
+                                path: commandPath,
+                                bundleID: nil,
+                                icon: icon,
+                                lastUsedDate: nil,
+                                isSystemApp: false
+                            )
+                            self.allShortcuts.append(appInfo)
+                        }
+                    }
+                } else {
+                    print("[SearchService] 无法解析命令输出")
+                    loadDefaultShortcuts()
+                }
+            } catch {
+                print("[SearchService] 执行命令失败: \(error)")
+                loadDefaultShortcuts()
+            }
+        } else {
+            print("[SearchService] 未找到shortcuts命令，可能是macOS版本低于Ventura")
+            loadDefaultShortcuts()
+        }
+    }
+    
+    // 从数据库获取快捷指令和颜色信息
+    private struct ShortcutInfo {
+        let name: String
+        let color: String
+        let icon: NSImage?
+    }
+    
+    private func readShortcutsFromDatabase() -> [ShortcutInfo] {
+        var shortcuts: [ShortcutInfo] = []
+        
+        // 数据库路径
+        let dbPath = "~/Library/Group Containers/group.com.apple.shortcuts/Shortcuts.sqlite"
+        let expandedPath = (dbPath as NSString).expandingTildeInPath
+        
+        print("[SearchService] 尝试读取数据库: \(expandedPath)")
+        
+        guard FileManager.default.fileExists(atPath: expandedPath) else {
+            print("[SearchService] 数据库文件不存在")
+            return shortcuts
+        }
+        
+        // 获取Shortcuts应用图标作为备选
+        let shortcutsAppIcon = getShortcutsAppIcon()
+        
+        // 由于Swift原生不支持直接操作SQLite，我们使用Process来执行sqlite3命令
+        let task = Process()
+        let pipe = Pipe()
+        
+        task.standardOutput = pipe
+        task.standardError = pipe
+        
+        // 检查是否安装了sqlite3
+        guard FileManager.default.fileExists(atPath: "/usr/bin/sqlite3") else {
+            print("[SearchService] 系统中没有找到sqlite3命令")
+            return shortcuts
+        }
+        
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        
+        // 查询获取快捷指令名称和颜色信息
+        // 注意：这是假设的表结构，实际表结构可能不同
+        task.arguments = [
+            expandedPath,
+            ".mode json",
+            "SELECT name, color, icon_data FROM shortcuts;"
+        ]
+        
+        do {
+            try task.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            
+            guard let output = String(data: data, encoding: .utf8) else {
+                print("[SearchService] 无法解析sqlite3输出")
+                return shortcuts
+            }
+            
+            // 检查是否有错误消息
+            if output.contains("Error") || output.contains("error") {
+                print("[SearchService] sqlite3错误: \(output)")
+                
+                // 尝试获取表结构信息
+                getTableSchema(path: expandedPath)
+                return shortcuts
+            }
+            
+            print("[SearchService] sqlite3输出: \(output)")
+            
+            // 尝试解析JSON输出
+            if let jsonData = output.data(using: .utf8),
+               let jsonArray = try? JSONSerialization.jsonObject(with: jsonData) as? [[String: Any]] {
+                
+                for item in jsonArray {
+                    if let name = item["name"] as? String {
+                        // 默认蓝色
+                        var color = "blue"
+                        if let colorValue = item["color"] as? String {
+                            color = colorValue
+                        }
+                        
+                        var icon: NSImage? = nil
+                        // 尝试解析图标数据，如果存在
+                        if let iconDataBase64 = item["icon_data"] as? String,
+                           let iconData = Data(base64Encoded: iconDataBase64) {
+                            icon = NSImage(data: iconData)
+                        } else {
+                            // 使用Shortcuts应用图标
+                            icon = shortcutsAppIcon
+                        }
+                        
+                        shortcuts.append(ShortcutInfo(name: name, color: color, icon: icon))
+                    }
+                }
+            } else {
+                print("[SearchService] 无法解析JSON输出，尝试其他格式...")
+                
+                // 分析表结构
+                getTableSchema(path: expandedPath)
+                
+                // 由于无法解析特定格式，返回Shortcuts名称列表
+                let names = parseShortcutsFromOutput(output)
+                for name in names {
+                    shortcuts.append(ShortcutInfo(name: name, color: "blue", icon: shortcutsAppIcon))
+                }
+            }
+        } catch {
+            print("[SearchService] 执行sqlite3命令失败: \(error)")
+            
+            // 如果执行失败，尝试查看数据库表结构
+            getTableSchema(path: expandedPath)
+        }
+        
+        return shortcuts
+    }
+    
+    // 解析从sqlite输出中获取的快捷指令名称
+    private func parseShortcutsFromOutput(_ output: String) -> [String] {
+        var names: [String] = []
+        
+        // 分割多行输出
+        let lines = output.components(separatedBy: .newlines)
+        
+        for line in lines {
+            // 移除前导和尾随空白
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty && !trimmed.contains("sqlite>") && !trimmed.contains("Error") {
+                // 尝试提取名称，这里假设名称是第一列
+                if let name = trimmed.components(separatedBy: "|").first?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !name.isEmpty {
+                    names.append(name)
+                }
+            }
+        }
+        
+        return names
+    }
+    
+    // 获取数据库表结构
+    private func getTableSchema(path: String) {
+        print("[SearchService] 尝试获取数据库表结构...")
+        
+        let task = Process()
+        let pipe = Pipe()
+        
+        task.standardOutput = pipe
+        task.standardError = pipe
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        
+        // 获取表名
+        task.arguments = [path, ".tables"]
+        
+        do {
+            try task.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let tablesOutput = String(data: data, encoding: .utf8) {
+                print("[SearchService] 数据库表: \(tablesOutput)")
+                
+                // 针对每个表获取结构
+                let tables = tablesOutput.components(separatedBy: .whitespacesAndNewlines)
+                    .filter { !$0.isEmpty }
+                
+                for table in tables {
+                    getTableColumns(path: path, table: table)
+                }
+            }
+        } catch {
+            print("[SearchService] 获取表结构失败: \(error)")
+        }
+    }
+    
+    // 获取表列信息
+    private func getTableColumns(path: String, table: String) {
+        let task = Process()
+        let pipe = Pipe()
+        
+        task.standardOutput = pipe
+        task.standardError = pipe
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        
+        // 获取表结构
+        task.arguments = [path, "PRAGMA table_info(\(table));"]
+        
+        do {
+            try task.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let columnsOutput = String(data: data, encoding: .utf8) {
+                print("[SearchService] 表 \(table) 结构:\n\(columnsOutput)")
+            }
+        } catch {
+            print("[SearchService] 获取表 \(table) 结构失败: \(error)")
+        }
+    }
+    
+    // 获取Shortcuts应用图标
+    private func getShortcutsAppIcon() -> NSImage? {
+        let possiblePaths = [
+            "/System/Applications/Shortcuts.app",
+            "/Applications/Shortcuts.app"
+        ]
+        
+        for path in possiblePaths {
+            if FileManager.default.fileExists(atPath: path) {
+                let icon = NSWorkspace.shared.icon(forFile: path)
+                print("[SearchService] 获取到Shortcuts应用图标")
+                return icon
+            }
+        }
+        
+        print("[SearchService] 未找到Shortcuts应用图标")
+        return nil
+    }
+    
+    // 解析shortcuts list命令的输出
+    private func parseShortcutsOutput(_ output: String) -> [String] {
+        // 按行分割
+        let lines = output.components(separatedBy: .newlines)
+            .filter { !$0.isEmpty }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        
+        // 移除可能的标题行或提示行
+        let shortcuts = lines.filter {
+            // 排除包含"Name"、"Type"等可能的标题行
+            !$0.lowercased().contains("name:") &&
+            !$0.lowercased().contains("type:") &&
+            !$0.lowercased().contains("folder:") &&
+            !$0.hasPrefix("-") && 
+            !$0.hasPrefix("=")
+        }
+        
+        return shortcuts
+    }
+    
+    // 加载默认的快捷指令列表作为备选方案
+    private func loadDefaultShortcuts() {
+        print("[SearchService] 不加载默认快捷指令列表，返回空列表")
+        // 不再创建默认快捷指令列表
+        self.allShortcuts = []
+    }
+    
+    // 根据颜色名称创建快捷指令图标
+    private func createShortcutIcon(withColor colorName: String) -> NSImage {
+        // 通用图标颜色
+        var color: NSColor = .systemBlue
+        
+        // 根据颜色名称设置实际颜色
+        switch colorName.lowercased() {
+        case "blue": color = .systemBlue
+        case "red": color = .systemRed
+        case "pink": color = .systemPink
+        case "orange": color = .systemOrange
+        case "yellow": color = .systemYellow
+        case "green": color = .systemGreen
+        case "teal", "mint": color = .systemTeal
+        case "indigo", "purple": color = .systemIndigo
+        case "gray", "grey": color = .systemGray
+        default: break
+        }
+        
+        // 创建图像
+        let size = NSSize(width: 32, height: 32)
+        let image = NSImage(size: size)
+        
+        image.lockFocus()
+        
+        let rect = NSRect(origin: .zero, size: size)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8)
+        
+        color.setFill()
+        path.fill()
+        
+        // 绘制标志性图案 (简单的"⚙" 或 "〉" 符号)
+        let textAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 18, weight: .bold),
+            .foregroundColor: NSColor.white
+        ]
+        
+        let symbol = "〉"
+        let textSize = symbol.size(withAttributes: textAttributes)
+        let textRect = NSRect(
+            x: (size.width - textSize.width) / 2,
+            y: (size.height - textSize.height) / 2,
+            width: textSize.width,
+            height: textSize.height
+        )
+        
+        symbol.draw(in: textRect, withAttributes: textAttributes)
+        
+        image.unlockFocus()
+        
+        return image
+    }
+    
+    @objc private func handleInitialAppLoad(notification: Notification) {
+        print("[SearchService] 接收到初始应用加载完成通知")
+        guard let query = notification.object as? NSMetadataQuery else {
+            print("[SearchService] 错误: 通知对象不是NSMetadataQuery")
+            return
+        }
+        
+        query.disableUpdates()
+        print("[SearchService] 查询结果数量: \(query.results.count)")
+        
+        // 只清空应用数据，保留快捷指令
+        self.allApps = []
+        
+        let contentTypeAttr = kMDItemContentType as String
+        
+        for item in query.results as! [NSMetadataItem] {
+            guard let path = item.value(forAttribute: kMDItemPath as String) as? String else { 
+                print("[SearchService] 警告: 跳过缺少路径的项目")
+                continue 
+            }
+            
+            // 获取内容类型，用于区分应用和快捷指令
+            let contentType = item.value(forAttribute: contentTypeAttr) as? String
+            
+            // 获取应用名称，使用显示名称
+            let displayName = item.value(forAttribute: kMDItemDisplayName as String) as? String ?? ""
+            
+            // 移除显示名称末尾的 .app 后缀（如果有）
+            let cleanDisplayName = displayName.hasSuffix(".app") ? 
+                displayName.replacingOccurrences(of: ".app", with: "") : 
+                displayName
+            
+            let icon = NSWorkspace.shared.icon(forFile: path)
+            let lastUsedDate = item.value(forAttribute: kMDItemLastUsedDate as String) as? Date
+            
+            // 处理应用程序
+            if contentType == "com.apple.application-bundle" || path.hasSuffix(".app") {
+                // 获取Bundle ID
+                let bundleID = Bundle(path: path)?.bundleIdentifier
+                
+                // 获取应用多语言名称
+                var localizedNames = getLocalizedAppNames(forPath: path)
+                // 确保主名称也在列表中
+                if !localizedNames.contains(cleanDisplayName) {
+                    localizedNames.append(cleanDisplayName)
+                }
+                
+                let isSystemApp = isInSystemDirectory(path)
+                let appInfo = AppInfo(
+                    name: cleanDisplayName,
+                    localizedNames: localizedNames,
+                    path: path,
+                    bundleID: bundleID,
+                    icon: icon,
+                    lastUsedDate: lastUsedDate,
+                    isSystemApp: isSystemApp
+                )
+                self.allApps.append(appInfo)
+                print("[SearchService] 添加应用: \(cleanDisplayName), 多语言名称: \(localizedNames.joined(separator: ", "))")
+            }
+            // 处理快捷指令
+            else if contentType == "com.apple.shortcuts.shortcut" || isShortcutFile(path) {
+                let appInfo = AppInfo(
+                    name: cleanDisplayName,
+                    path: path,
+                    bundleID: nil,
+                    icon: icon,
+                    lastUsedDate: lastUsedDate,
+                    isSystemApp: false
+                )
+                self.allShortcuts.append(appInfo)
+                print("[SearchService] 添加快捷指令: \(cleanDisplayName), 路径: \(path)")
+            }
+        }
+        
+        print("[SearchService] 预加载完成: \(self.allApps.count) 个应用, \(self.allShortcuts.count) 个快捷指令")
+        
+        query.stop()
+        NotificationCenter.default.removeObserver(self, name: .NSMetadataQueryDidFinishGathering, object: query)
+        
+        // 设置文件搜索查询
+        self.setupMetadataQuery()
+    }
+    
+    // 检查文件是否是快捷指令文件
+    private func isShortcutFile(_ path: String) -> Bool {
+        // 检查路径是否在快捷指令目录中或具有快捷指令文件扩展名
+        if path.hasSuffix(".shortcut") {
+            return true
+        }
+        
+        for dir in shortcutDirectories {
+            let expandedDir = (dir as NSString).expandingTildeInPath
+            if path.hasPrefix(expandedDir) {
+                return true
+            }
+        }
+        
+        // 检查特定的快捷指令应用路径
+        if path.contains("/com.apple.shortcuts/") && path.contains("/Shortcuts/") {
+            return true
+        }
+        
+        return false
+    }
+    
     private func setupMetadataQuery() {
+        print("[SearchService] 设置元数据查询...")
         if let query = metadataQuery {
             query.stop()
             NotificationCenter.default.removeObserver(self)
@@ -79,9 +687,7 @@ class SearchService: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
-            if let currentQuery = self.metadataQuery {
-                currentQuery.stop()
-            }
+            print("[SearchService] 执行搜索: \"\(query)\", 应用缓存: \(self.allApps.count)个, 快捷指令缓存: \(self.allShortcuts.count)个")
             
             if query.isEmpty {
                 self.searchResults = []
@@ -89,23 +695,195 @@ class SearchService: ObservableObject {
                 return
             }
             
-            guard let metadataQuery = self.metadataQuery else { return }
+            // 如果应用列表为空，尝试立即加载
+            if self.allApps.isEmpty && self.allShortcuts.isEmpty {
+                print("[SearchService] 警告: 应用缓存为空，尝试重新加载")
+                self.loadAllApps()
+                
+                // 为防止应用加载期间没有结果显示，这里可以返回一个临时结果
+                let tempResult = SearchResult(
+                    id: UUID(),
+                    name: "正在加载应用列表...",
+                    path: "",
+                    type: .application,
+                    category: self.applicationCategory,
+                    icon: NSImage(named: NSImage.applicationIconName) ?? NSImage(),
+                    subtitle: "请稍候",
+                    lastUsedDate: nil,
+                    relevanceScore: 100
+                )
+                self.searchResults = [tempResult]
+                self.categories = [SearchResultCategory(
+                    id: "loading",
+                    title: "加载中",
+                    results: [tempResult]
+                )]
+                return
+            }
             
-            // 构建应用名称匹配谓词
-            let appNamePredicates = buildSearchPredicates(forQuery: query)
+            let searchQueryText = query.lowercased()
             
-            // 应用类型谓词
-            let appTypePredicate = NSPredicate(format: "kMDItemContentType = 'com.apple.application-bundle'")
+            // 在内存中过滤系统应用
+            let filteredApps = self.allApps
+                .filter { $0.isSystemApp }
+                .filter { app in
+                    self.appMatchesQuery(app: app, query: searchQueryText)
+                }
+                .map { app -> SearchResult in
+                    let relevanceScore = self.calculateRelevanceScore(app: app, query: searchQueryText)
+                    return SearchResult(
+                        id: UUID(),
+                        name: app.name,
+                        path: app.path,
+                        type: .application,
+                        category: self.applicationCategory,
+                        icon: app.icon,
+                        subtitle: "",  // 移除路径显示
+                        lastUsedDate: app.lastUsedDate,
+                        relevanceScore: relevanceScore
+                    )
+                }
             
-            // 组合应用类型和名称匹配谓词
-            let appPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [appTypePredicate, appNamePredicates])
+            // 在内存中过滤快捷指令
+            let filteredShortcuts = self.allShortcuts
+                .filter { app in
+                    self.appMatchesQuery(app: app, query: searchQueryText)
+                }
+                .map { app -> SearchResult in
+                    let relevanceScore = self.calculateRelevanceScore(app: app, query: searchQueryText)
+                    return SearchResult(
+                        id: UUID(),
+                        name: app.name,
+                        path: app.path,
+                        type: .shortcut,
+                        category: self.shortcutsCategory,
+                        icon: app.icon,
+                        subtitle: "",  // 移除"快捷指令"文字
+                        lastUsedDate: app.lastUsedDate,
+                        relevanceScore: relevanceScore
+                    )
+                }
             
-            // 添加快捷指令搜索
-            let shortcutsPredicate = buildSearchPredicatesForShortcuts(query: query)
+            // 对结果进行同样的排序
+            let sortedApps = self.sortSearchResults(filteredApps)
+            let sortedShortcuts = self.sortSearchResults(filteredShortcuts)
             
-            metadataQuery.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [appPredicate, shortcutsPredicate])
+            let allResults = sortedApps + sortedShortcuts
             
-            metadataQuery.start()
+            print("[SearchService] 查询 \"\(query)\" 找到 \(sortedApps.count) 个应用, \(sortedShortcuts.count) 个快捷指令")
+            
+            // 更新结果
+            self.searchResults = allResults
+            
+            var categories: [SearchResultCategory] = []
+            if !sortedApps.isEmpty {
+                categories.append(SearchResultCategory(
+                    id: self.applicationCategory,
+                    title: self.applicationCategory,
+                    results: sortedApps
+                ))
+            }
+            if !sortedShortcuts.isEmpty {
+                categories.append(SearchResultCategory(
+                    id: self.shortcutsCategory,
+                    title: self.shortcutsCategory,
+                    results: sortedShortcuts
+                ))
+            }
+            
+            self.categories = categories
+        }
+    }
+    
+    // 判断应用是否匹配查询
+    private func appMatchesQuery(app: AppInfo, query: String) -> Bool {
+        let lowercaseQuery = query.lowercased()
+        
+        // 检查主名称
+        if appNameMatchesQuery(appName: app.name, query: lowercaseQuery) {
+            return true
+        }
+        
+        // 检查所有本地化名称
+        for name in app.localizedNames {
+            if appNameMatchesQuery(appName: name, query: lowercaseQuery) {
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    // 判断应用名称是否匹配查询
+    private func appNameMatchesQuery(appName: String, query: String) -> Bool {
+        let lowercaseAppName = appName.lowercased()
+        let lowercaseQuery = query.lowercased()
+        
+        // 完全匹配
+        if lowercaseAppName == lowercaseQuery {
+            return true
+        }
+        
+        // 前缀匹配
+        if lowercaseAppName.hasPrefix(lowercaseQuery) {
+            return true
+        }
+        
+        // 忽略英文单词之间的空格的匹配
+        let appNameNoSpaces = lowercaseAppName.replacingOccurrences(of: " ", with: "")
+        let queryNoSpaces = lowercaseQuery.replacingOccurrences(of: " ", with: "")
+        
+        if appNameNoSpaces == queryNoSpaces || appNameNoSpaces.hasPrefix(queryNoSpaces) {
+            return true
+        }
+        
+        // 单词匹配（对英文更有效）
+        let words = lowercaseAppName.components(separatedBy: .whitespacesAndNewlines)
+        for word in words where word.hasPrefix(lowercaseQuery) {
+            return true
+        }
+        
+        // 中文匹配 - 对中文字符进行特殊处理
+        if containsChineseCharacters(query) {
+            // 对于中文查询，支持任意位置匹配
+            if lowercaseAppName.contains(lowercaseQuery) {
+                return true
+            }
+        }
+        // 英文匹配，至少3个字符才做包含匹配
+        else if query.count >= 3 && lowercaseAppName.contains(lowercaseQuery) {
+            return true
+        }
+        
+        return false
+    }
+    
+    // 检查字符串是否包含中文字符
+    private func containsChineseCharacters(_ text: String) -> Bool {
+        let pattern = "\\p{Han}"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+            let range = NSRange(location: 0, length: text.utf16.count)
+            return regex.firstMatch(in: text, options: [], range: range) != nil
+        }
+        return false
+    }
+    
+    // 排序搜索结果
+    private func sortSearchResults(_ results: [SearchResult]) -> [SearchResult] {
+        results.sorted { (result1, result2) in
+            // 首先比较最近使用时间
+            if let date1 = result1.lastUsedDate, let date2 = result2.lastUsedDate {
+                if date1 != date2 {
+                    return date1 > date2
+                }
+            } else if result1.lastUsedDate != nil {
+                return true
+            } else if result2.lastUsedDate != nil {
+                return false
+            }
+            
+            // 时间相同或无法比较时，比较相关性分数
+            return result1.relevanceScore > result2.relevanceScore
         }
     }
     
@@ -114,60 +892,82 @@ class SearchService: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
-            if let currentQuery = self.metadataQuery {
-                currentQuery.stop()
-            }
-            
             if query.isEmpty {
                 self.fileSearchResults = []
                 return
             }
             
-            guard let metadataQuery = self.metadataQuery else { return }
+            let searchQueryText = query.lowercased()
+            
+            // 在内存中过滤非系统应用
+            let filteredNonSystemApps = self.allApps
+                .filter { !$0.isSystemApp }
+                .filter { app in
+                    self.appMatchesQuery(app: app, query: searchQueryText)
+                }
+                .map { app -> SearchResult in
+                    let relevanceScore = self.calculateRelevanceScore(app: app, query: searchQueryText)
+                    return SearchResult(
+                        id: UUID(),
+                        name: app.name,
+                        path: app.path,
+                        type: .application,
+                        category: "其他应用程序",
+                        icon: app.icon,
+                        subtitle: "",  // 移除路径显示
+                        lastUsedDate: app.lastUsedDate,
+                        relevanceScore: relevanceScore
+                    )
+                }
+            
+            let sortedNonSystemApps = self.sortSearchResults(filteredNonSystemApps)
+            
+            // 使用元数据查询搜索文件
+            guard let metadataQuery = self.metadataQuery else {
+                self.fileSearchResults = sortedNonSystemApps
+                return
+            }
             
             // 文件搜索 - 非应用文件
-            let fileNamePredicates = buildSearchPredicates(forQuery: query)
+            let fileNamePredicates = self.buildSearchPredicates(forQuery: query)
             let nonAppTypePredicate = NSPredicate(format: "kMDItemContentType != 'com.apple.application-bundle'")
             let nonAppFilePredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [nonAppTypePredicate, fileNamePredicates])
             
-            // 搜索不在系统目录列表中的应用程序
-            var nonSystemAppPredicates: [NSPredicate] = []
-            let appTypePredicate = NSPredicate(format: "kMDItemContentType = 'com.apple.application-bundle'")
-            let appNamePredicates = buildSearchPredicates(forQuery: query)
-            
-            // 组合应用类型和名称匹配谓词
-            let appBasePredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [appTypePredicate, appNamePredicates])
-            
-            // 为每个系统目录创建一个排除谓词
-            for directory in systemAppDirectories {
-                let dirExclusionPredicate = NSPredicate(format: "NOT (kMDItemPath BEGINSWITH %@)", directory)
-                nonSystemAppPredicates.append(NSCompoundPredicate(andPredicateWithSubpredicates: [appBasePredicate, dirExclusionPredicate]))
-            }
-            
-            // 合并所有非系统应用谓词
-            let nonSystemAppPredicate: NSPredicate
-            if nonSystemAppPredicates.count > 1 {
-                nonSystemAppPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: nonSystemAppPredicates)
-            } else if nonSystemAppPredicates.count == 1 {
-                nonSystemAppPredicate = nonSystemAppPredicates[0]
-            } else {
-                nonSystemAppPredicate = NSPredicate(value: false)
-            }
-            
-            // 合并非应用文件和非系统应用的谓词
-            metadataQuery.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [nonAppFilePredicate, nonSystemAppPredicate])
+            metadataQuery.predicate = nonAppFilePredicate
             
             // 使用自定义通知来处理文件搜索结果
             NotificationCenter.default.removeObserver(self, name: .NSMetadataQueryDidFinishGathering, object: metadataQuery)
             NotificationCenter.default.addObserver(
                 self,
-                selector: #selector(handleFileQueryResults),
+                selector: #selector(self.handleFileQueryResults),
                 name: .NSMetadataQueryDidFinishGathering,
                 object: metadataQuery
             )
             
+            // 保存非系统应用结果，等待文件搜索完成后合并
+            self.fileSearchResults = sortedNonSystemApps
             metadataQuery.start()
         }
+    }
+    
+    // 计算搜索相关性分数
+    private func calculateRelevanceScore(app: AppInfo, query: String) -> Int {
+        let lowercaseQuery = query.lowercased()
+        let score = calculateRelevanceScore(appName: app.name, query: lowercaseQuery)
+        
+        // 如果主名称匹配度不高，检查本地化名称
+        if score < 70 {
+            var highestScore = score
+            for name in app.localizedNames {
+                let localizedScore = calculateRelevanceScore(appName: name, query: lowercaseQuery)
+                if localizedScore > highestScore {
+                    highestScore = localizedScore
+                }
+            }
+            return highestScore
+        }
+        
+        return score
     }
     
     // 计算搜索相关性分数
@@ -190,6 +990,18 @@ class SearchService: ObservableObject {
         for word in words {
             if word.hasPrefix(lowercaseQuery) {
                 return 70
+            }
+        }
+        
+        // 中文特殊处理 - 为中文查询提供更高的包含匹配分数
+        if containsChineseCharacters(query) {
+            if lowercaseAppName.contains(lowercaseQuery) {
+                // 字符匹配在靠前的位置，根据匹配位置给分
+                if let range = lowercaseAppName.range(of: lowercaseQuery) {
+                    let distance = lowercaseAppName.distance(from: lowercaseAppName.startIndex, to: range.lowerBound)
+                    return max(30, 65 - distance) // 中文匹配位置越靠前，分数越高
+                }
+                return 60 // 默认中文包含匹配分数
             }
         }
         
@@ -238,13 +1050,13 @@ class SearchService: ObservableObject {
                     type: .application,
                     category: applicationCategory,
                     icon: icon,
-                    subtitle: path,
+                    subtitle: "",  // 移除路径显示
                     lastUsedDate: lastUsedDate,
                     relevanceScore: relevanceScore
                 )
                 applications.append(result)
-            } else if path.contains("Shortcuts") {
-                // 简化的快捷指令检测，实际应用中应更精确
+            } else if isShortcutFile(path) {
+                // 快捷指令处理
                 let relevanceScore = calculateRelevanceScore(appName: cleanDisplayName, query: searchQueryText)
                 
                 let result = SearchResult(
@@ -254,7 +1066,7 @@ class SearchService: ObservableObject {
                     type: .shortcut,
                     category: shortcutsCategory,
                     icon: icon,
-                    subtitle: "快捷指令",
+                    subtitle: "",  // 移除"快捷指令"文字
                     lastUsedDate: lastUsedDate,
                     relevanceScore: relevanceScore
                 )
@@ -349,7 +1161,6 @@ class SearchService: ObservableObject {
         query.disableUpdates()
         
         var files: [SearchResult] = []
-        var nonSystemApps: [SearchResult] = []
         var processedItemCount = 0
         let searchQueryText = query.predicate?.description.components(separatedBy: "\"").filter { !$0.contains("kMDItem") }.first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) ?? ""
         
@@ -368,55 +1179,21 @@ class SearchService: ObservableObject {
             let icon = NSWorkspace.shared.icon(forFile: path)
             let lastUsedDate = item.value(forAttribute: kMDItemLastUsedDate as String) as? Date
             
-            // 区分非系统应用和普通文件
-            if path.hasSuffix(".app") && !isInSystemDirectory(path) {
-                let relevanceScore = calculateRelevanceScore(appName: cleanDisplayName, query: searchQueryText)
-                
-                let result = SearchResult(
-                    id: UUID(),
-                    name: cleanDisplayName,
-                    path: path,
-                    type: .application,
-                    category: "其他应用程序",
-                    icon: icon,
-                    subtitle: path,
-                    lastUsedDate: lastUsedDate,
-                    relevanceScore: relevanceScore
-                )
-                nonSystemApps.append(result)
-                processedItemCount += 1
-            } else {
-                let relevanceScore = calculateRelevanceScore(appName: cleanDisplayName, query: searchQueryText)
-                
-                let result = SearchResult(
-                    id: UUID(),
-                    name: cleanDisplayName,
-                    path: path,
-                    type: .file,
-                    category: recentFilesCategory,
-                    icon: icon,
-                    subtitle: path,
-                    lastUsedDate: lastUsedDate,
-                    relevanceScore: relevanceScore
-                )
-                files.append(result)
-                processedItemCount += 1
-            }
-        }
-        
-        // 对非系统应用进行两级排序
-        nonSystemApps.sort { (result1, result2) in
-            if let date1 = result1.lastUsedDate, let date2 = result2.lastUsedDate {
-                if date1 != date2 {
-                    return date1 > date2
-                }
-            } else if result1.lastUsedDate != nil {
-                return true
-            } else if result2.lastUsedDate != nil {
-                return false
-            }
+            let relevanceScore = calculateRelevanceScore(appName: cleanDisplayName, query: searchQueryText)
             
-            return result1.relevanceScore > result2.relevanceScore
+            let result = SearchResult(
+                id: UUID(),
+                name: cleanDisplayName,
+                path: path,
+                type: .file,
+                category: recentFilesCategory,
+                icon: icon,
+                subtitle: "",  // 移除路径显示
+                lastUsedDate: lastUsedDate,
+                relevanceScore: relevanceScore
+            )
+            files.append(result)
+            processedItemCount += 1
         }
         
         // 对文件进行两级排序
@@ -434,12 +1211,12 @@ class SearchService: ObservableObject {
             return result1.relevanceScore > result2.relevanceScore
         }
         
-        // 合并所有结果，先显示非系统应用，再显示文件
-        let allResults = nonSystemApps + files
-        
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.fileSearchResults = allResults
+            // 获取当前的非系统应用结果
+            let nonSystemApps = self.fileSearchResults
+            // 合并非系统应用和文件结果
+            self.fileSearchResults = nonSystemApps + files
         }
         
         query.enableUpdates()
@@ -454,8 +1231,51 @@ class SearchService: ObservableObject {
         )
     }
     
+    // 覆盖原有的打开结果方法，添加对快捷指令命令的支持
     func openResult(_ result: SearchResult) {
+        if result.type == .shortcut {
+            // 对于快捷指令，使用Process执行命令
+            if result.path.hasPrefix("shortcuts run") {
+                runShortcutCommand(result.path)
+                return
+            }
+        }
+        
+        // 对于其他类型，使用默认方法打开
         NSWorkspace.shared.open(URL(fileURLWithPath: result.path))
+    }
+    
+    // 执行快捷指令命令
+    private func runShortcutCommand(_ command: String) {
+        // 解析命令字符串
+        let components = command.components(separatedBy: " ")
+        if components.count < 3 || components[0] != "shortcuts" || components[1] != "run" {
+            print("[SearchService] 错误: 无效的快捷指令命令: \(command)")
+            return
+        }
+        
+        // 重建快捷指令名称（可能包含空格）
+        let shortcutName = components[2...].joined(separator: " ")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+        
+        print("[SearchService] 执行快捷指令: \(shortcutName)")
+        
+        let task = Process()
+        let pipe = Pipe()
+        
+        task.standardOutput = pipe
+        task.standardError = pipe
+        task.arguments = ["run", shortcutName]
+        
+        // 设置可执行文件路径
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
+        
+        do {
+            try task.run()
+            print("[SearchService] 快捷指令执行已启动")
+        } catch {
+            print("[SearchService] 执行快捷指令失败: \(error)")
+        }
     }
     
     func clearResults() {

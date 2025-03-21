@@ -143,10 +143,16 @@ struct ResultRow: View {
             
             Spacer()
             
-            Text("↩")
-                .font(.system(size: 12))
+            // 添加类型标签
+            Text(result.type.categoryTitle)
+                .font(.system(size: 11))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.secondary.opacity(0.2))
+                )
                 .foregroundColor(.secondary)
-                .padding(.trailing, 4)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
