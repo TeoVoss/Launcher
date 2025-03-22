@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import SwiftUI
 
 struct SearchResult: Identifiable, Hashable {
     let id: UUID
@@ -85,6 +86,20 @@ extension SearchResultType {
         case .suggestion: return "建议"
         case .ai: return "AI"
         case .shortcut: return "快捷指令"
+        }
+    }
+    
+    var categoryColor: Color {
+        switch self {
+        case .application: return Color.blue
+        case .file: return Color.green
+        case .folder: return Color.orange
+        case .document: return Color.purple
+        case .system: return Color.gray
+        case .calculator: return Color.pink
+        case .suggestion: return Color.teal
+        case .ai: return Color.red
+        case .shortcut: return Color.indigo
         }
     }
     

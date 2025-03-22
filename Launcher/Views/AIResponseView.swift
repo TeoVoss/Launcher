@@ -536,7 +536,7 @@ struct AIResponseView: View {
     // 添加引用回调，用于外部获取视图实例
     var onViewCreated: ((AIResponseView) -> Void)? = nil
     @State private var scrollViewHeight: CGFloat = 0
-    @State private var currentPrompt: String = ""
+    @State private var isInitialized: Bool = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -607,47 +607,67 @@ struct AIResponseView: View {
                         }
                     }
                 }
+                // 添加对当前响应的监听，确保在AI正在回复时也能滚动到最新位置
+                .onChange(of: aiService.currentResponse) { _ in
+                    if aiService.isStreaming, let activeIndex = aiService.activeResponseIndex {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            let id = aiService.conversationHistory[activeIndex].id
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                proxy.scrollTo(id, anchor: .bottom)
+                            }
+                        }
+                    }
+                }
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .top)
         .onAppear {
-            // 第一次显示视图时，记录当前提示并发送请求
-            currentPrompt = prompt
+            print("AI视图出现，isInitialized=\(isInitialized), prompt=\(prompt)")
             
             // 调用回调，使外部能引用此视图
             onViewCreated?(self)
             
-            Task { @MainActor in
-                await aiService.streamChat(prompt: prompt)
+            // 仅首次加载且有提示时发送请求
+            if !isInitialized && !prompt.isEmpty {
+                print("首次初始化AI视图，发送请求: \(prompt)")
+                isInitialized = true
+                
+                Task { @MainActor in
+                    await aiService.streamChat(prompt: prompt)
+                }
             }
         }
-        .onChange(of: prompt) { newValue in
-            // 更新当前记录的提示，但不触发请求
-            // 请求将由SpotlightView的handleSubmit方法在用户按下Enter时触发
-            currentPrompt = newValue
-        }
         .onDisappear {
+            print("AI视图消失")
+            
+            // 停止当前流式请求
             aiService.cancelStream()
+            
+            // 重置初始化状态，确保下次能正确处理
+            isInitialized = false
         }
     }
     
     // 添加一个方法来手动发送请求
-    func sendRequest() async {
+    func sendRequest(prompt: String) async {
+        print("手动发送AI请求: \(prompt)")
         if !aiService.isStreaming {
-            await aiService.streamChat(prompt: currentPrompt)
+            await aiService.streamChat(prompt: prompt)
         }
     }
     
     private func updateTotalHeight() {
-        let totalHeight = min(scrollViewHeight + 20, 500) // 滚动视图高度 + 上下内边距，最大高度限制
+        // 计算内容高度 = 滚动视图高度 + 上下内边距
+        let contentHeight = scrollViewHeight + 20
         
-        // 设置一个最小高度，即使内容很少也保持合理的窗口大小
+        // 限制高度范围
         let minHeight: CGFloat = 250
-        let effectiveHeight = max(totalHeight, minHeight)
+        let maxHeight: CGFloat = 500
+        let effectiveHeight = min(max(contentHeight, minHeight), maxHeight)
         
-        // 通知父视图更新高度
+        // 通知外部组件一次性更新高度
         onHeightChange?(effectiveHeight)
     }
 } 

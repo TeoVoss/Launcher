@@ -72,6 +72,11 @@ class SearchService: ObservableObject {
         searchResultManager.openResult(result)
     }
     
+    // 执行搜索结果的方法 - 与openResult相同
+    func executeResult(_ result: SearchResult) {
+        searchResultManager.openResult(result)
+    }
+    
     // 保持与原有API兼容的清除结果方法
     func clearResults() {
         searchResultManager.clearResults()
