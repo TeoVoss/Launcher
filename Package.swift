@@ -7,12 +7,13 @@ let package = Package(
         .macOS(.v13)
     ],
     dependencies: [
-        .package(url: "https://github.com/soffes/HotKey", from: "0.1.3")
+        .package(url: "https://github.com/soffes/HotKey", from: "0.1.3"),
+        .package(url: "https://github.com/raspu/Highlightr", from: "2.1.2")
     ],
     targets: [
         .target(
             name: "Launcher",
-            dependencies: ["HotKey"],
+            dependencies: ["HotKey", "Highlightr"],
             path: "Launcher"
         ),
         .testTarget(
@@ -21,4 +22,4 @@ let package = Package(
             path: "LauncherTests"
         )
     ]
-) 
+)
