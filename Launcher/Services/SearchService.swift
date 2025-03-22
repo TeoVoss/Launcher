@@ -54,9 +54,17 @@ class SearchService: ObservableObject {
     
     // 保持与原有API兼容的文件搜索方法
     func searchFiles(query: String) {
-        // 在新的架构中，文件搜索已集成到统一搜索中
-        // 这里仅为了向后兼容而保留API
-        searchResultManager.search(query: query)
+        // 如果查询为空，则直接清除文件搜索结果
+        if query.isEmpty {
+            DispatchQueue.main.async { [weak self] in
+                self?.fileSearchResults = []
+            }
+            searchResultManager.clearFileResults()
+            return
+        }
+        
+        // 专门执行文件搜索
+        searchResultManager.searchFiles(query: query)
     }
     
     // 保持与原有API兼容的打开结果方法
@@ -67,5 +75,9 @@ class SearchService: ObservableObject {
     // 保持与原有API兼容的清除结果方法
     func clearResults() {
         searchResultManager.clearResults()
+        // 同时确保文件搜索结果也被清除
+        DispatchQueue.main.async { [weak self] in
+            self?.fileSearchResults = []
+        }
     }
 } 

@@ -75,10 +75,31 @@ class SearchResultManager: ObservableObject {
             // 搜索快捷指令
             _ = self.shortcutSearchService.search(query: query)
             
-            // 搜索文件（异步，通过订阅更新）
-            DispatchQueue.main.async {
-                self.fileSearchService.search(query: query)
-            }
+            // 不再默认搜索文件，改为仅在用户选择文件搜索入口时才搜索
+            // self.fileSearchService.search(query: query)
+        }
+    }
+    
+    // 专门用于文件搜索的方法
+    func searchFiles(query: String) {
+        if query.isEmpty {
+            clearFileResults()
+            return
+        }
+        
+        // 专门执行文件搜索
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.fileSearchService.search(query: query)
+        }
+    }
+    
+    // 清空文件搜索结果
+    func clearFileResults() {
+        DispatchQueue.main.async {
+            self.fileSearchService.fileResults = []
+            // 确保更新结果集，避免残留
+            self.updateResults()
         }
     }
     

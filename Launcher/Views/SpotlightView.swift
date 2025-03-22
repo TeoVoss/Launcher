@@ -202,7 +202,7 @@ struct ResultsList: View {
                     }
                 }
                 .padding(.vertical, 8)
-                .onChange(of: selectedIndex) { _, newIndex in
+                .onChange(of: selectedIndex) { newIndex in
                     if let index = newIndex {
                         withAnimation {
                             proxy.scrollTo(index, anchor: .center)
@@ -281,90 +281,34 @@ struct SpotlightView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            SearchBar(
-                searchText: $searchText,
-                onClear: {
-                    searchText = ""
-                    selectedIndex = nil
-                    resetWindowHeight()
-                }
-            )
-            .frame(height: 60)
-            
-            if showingAIResponse {
-                AIResponseView(
-                    aiService: aiService,
-                    prompt: searchText,
-                    onEscape: handleEscape,
-                    onHeightChange: { contentHeight in
-                        DispatchQueue.main.async {
-                            adjustWindowHeightWithContent(contentHeight: contentHeight)
-                        }
-                    },
-                    onViewCreated: { view in
-                        aiResponseView = view
-                    }
-                )
-            } else if showingFileSearch {
-                // 文件搜索二级视图
-                FileSearchView(
-                    searchService: searchService,
-                    searchText: $searchText,
-                    selectedIndex: $selectedIndex,
-                    onResultSelected: { result in
-                        searchService.openResult(result)
-                        if let window = NSApp.keyWindow {
-                            window.close()
-                        }
-                    },
-                    onResultsChanged: {
-                        adjustWindowHeight()
-                    }
-                )
-            } else if !searchText.isEmpty {
-                VStack(spacing: 0) {
-                    Divider()
-                    
-                    if displayResults.isEmpty {
-                        Text("无搜索结果")
-                            .foregroundColor(.secondary)
-                            .font(.system(size: 14))
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 20)
-                            .frame(height: 60) // 设置最小高度，避免窗口过短
-                    } else {
-                        ScrollViewReader { proxy in
-                            ScrollView {
-                                LazyVStack(alignment: .leading, spacing: 0) {
-                                    ForEach(Array(displayResults.enumerated()), id: \.element.id) { index, result in
-                                        ResultRow(result: result, isSelected: index == selectedIndex)
-                                            .id(index)
-                                            .onTapGesture {
-                                                handleItemClick(result)
-                                            }
-                                    }
-                                }
-                                .padding(.vertical, 8)
-                                .onChange(of: selectedIndex) { _, newIndex in
-                                    if let index = newIndex {
-                                        withAnimation {
-                                            proxy.scrollTo(index, anchor: .center)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .background(Color(nsColor: .windowBackgroundColor).opacity(0.95))
-            }
-        }
+        SpotlightViewContent(
+            searchService: searchService,
+            aiService: aiService,
+            searchText: $searchText,
+            selectedIndex: $selectedIndex,
+            isSearchFocused: $isSearchFocused,
+            showingAIResponse: $showingAIResponse,
+            showingFileSearch: $showingFileSearch,
+            height: $height,
+            prompt: $prompt,
+            aiResponseView: $aiResponseView,
+            onClear: {
+                searchText = ""
+                selectedIndex = nil
+                resetWindowHeight()
+            },
+            handleItemClick: handleItemClick,
+            handleEscape: handleEscape,
+            handleUpArrow: handleUpArrow,
+            handleDownArrow: handleDownArrow,
+            handleSubmit: handleSubmit,
+            adjustWindowHeight: adjustWindowHeight,
+            adjustWindowHeightWithContent: adjustWindowHeightWithContent
+        )
         .frame(width: 680, height: height)
         .background(Color(nsColor: .windowBackgroundColor))
         .cornerRadius(8)
-        .onChange(of: searchText) { _, newValue in
+        .onChange(of: searchText) { newValue in
             UserDefaults.standard.set(searchText, forKey: "LastSearchText")
             if !showingAIResponse && !showingFileSearch {
                 searchService.search(query: newValue)
@@ -378,23 +322,23 @@ struct SpotlightView: View {
                 }
             }
         }
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             handleScenePhaseChange(newPhase)
         }
-        .onChange(of: selectedIndex) { _, newValue in
+        .onChange(of: selectedIndex) { newValue in
             if let index = newValue {
                 UserDefaults.standard.set(index, forKey: "LastSelectedIndex")
             }
         }
-        .onChange(of: searchService.searchResults) { _, _ in
+        .onChange(of: searchService.searchResults) { _ in
             if !showingFileSearch {
                 adjustWindowHeight()
             }
         }
-        .onChange(of: aiService.currentResponse) { _, newValue in
+        .onChange(of: aiService.currentResponse) { _ in
             // 不再需要在这里调整高度，已由 onHeightChange 回调处理
         }
-        .onChange(of: showingAIResponse) { _, newValue in
+        .onChange(of: showingAIResponse) { newValue in
             if newValue {
                 // 显示 AI 响应时设置一个初始高度
                 let baseHeight: CGFloat = 60
@@ -411,9 +355,9 @@ struct SpotlightView: View {
                 }
             }
         }
-        .onChange(of: showingFileSearch) { _, newValue in
+        .onChange(of: showingFileSearch) { newValue in
             if newValue {
-                // 显示文件搜索视图时，重新搜索并确保UI状态正确
+                // 显示文件搜索视图时，执行文件搜索
                 searchService.searchFiles(query: searchText)
                 // 稍作延迟，确保结果已加载
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -423,14 +367,17 @@ struct SpotlightView: View {
                     adjustWindowHeight()
                 }
             } else {
-                // 返回主视图时，清除文件搜索结果
+                // 返回主视图时，确保彻底清除所有文件搜索结果
                 searchService.clearResults() // 清除当前文件搜索结果
-                searchService.search(query: searchText) // 重新搜索应用
-                selectedIndex = 0
-                adjustWindowHeight()
+                searchService.searchFiles(query: "") // 明确清空文件搜索结果
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    searchService.search(query: searchText) // 重新搜索应用
+                    selectedIndex = 0
+                    adjustWindowHeight()
+                }
             }
         }
-        .onChange(of: searchService.fileSearchResults) { _, _ in
+        .onChange(of: searchService.fileSearchResults) { _ in
             // 监听文件搜索结果变化，调整窗口高度
             if showingFileSearch {
                 // 如果文件搜索结果变化，确保有选中状态
@@ -440,87 +387,133 @@ struct SpotlightView: View {
                 adjustWindowHeight()
             }
         }
-        .onKeyPress(.escape) { [self] in
-            if showingAIResponse {
-                showingAIResponse = false
-                aiService.cancelStream()
-                adjustWindowHeight()
-                return .handled
-            }
-            if showingFileSearch {
-                withAnimation {
-                    showingFileSearch = false
-                }
-                adjustWindowHeight()
-                return .handled
-            }
-            if !searchText.isEmpty {
-                searchText = ""
-                selectedIndex = nil
-                return .handled
-            }
-            if let window = NSApp.keyWindow {
-                window.close()
-                return .handled
-            }
-            return .ignored
-        }
-        .onKeyPress(.upArrow) { [self] in
-            if showingFileSearch {
-                if !searchService.fileSearchResults.isEmpty {
-                    if let currentIndex = selectedIndex {
-                        selectedIndex = max(0, currentIndex - 1)
-                    } else {
-                        selectedIndex = searchService.fileSearchResults.count - 1
-                    }
-                }
-            } else {
-                handleUpArrow()
-            }
-            return .handled
-        }
-        .onKeyPress(.downArrow) { [self] in
-            if showingFileSearch {
-                if !searchService.fileSearchResults.isEmpty {
-                    if let currentIndex = selectedIndex {
-                        selectedIndex = min(searchService.fileSearchResults.count - 1, currentIndex + 1)
-                    } else {
-                        selectedIndex = 0
-                    }
-                }
-            } else {
-                handleDownArrow()
-            }
-            return .handled
-        }
-        .onKeyPress(.return) { [self] in
-            if showingFileSearch {
-                if let selectedIndex = selectedIndex,
-                   selectedIndex >= 0,
-                   selectedIndex < searchService.fileSearchResults.count {
-                    let result = searchService.fileSearchResults[selectedIndex]
-                    searchService.openResult(result)
-                    if let window = NSApp.keyWindow {
-                        window.close()
-                    }
-                    return .handled
-                }
-            } else {
-                if let selectedIndex = selectedIndex,
-                   selectedIndex >= 0,
-                   selectedIndex < displayResults.count {
-                    handleSubmit()
-                    return .handled
-                }
-            }
-            return .ignored
-        }
         .onAppear {
             setupWindow()
             // 保存服务引用
             ServiceReferences.shared.searchService = searchService
             ServiceReferences.shared.aiService = aiService
+            
+            // 添加键盘事件监听
+            setupKeyboardHandlers()
         }
+    }
+    
+    // 设置键盘事件处理
+    private func setupKeyboardHandlers() {
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [self] event in
+            // 处理Escape键
+            if event.keyCode == 53 {  // Escape键
+                if handleEscapeKey() {
+                    return nil  // 事件已处理
+                }
+            }
+            
+            // 处理上箭头
+            else if event.keyCode == 126 {  // 上箭头
+                if handleUpArrowKey() {
+                    return nil  // 事件已处理
+                }
+            }
+            
+            // 处理下箭头
+            else if event.keyCode == 125 {  // 下箭头
+                if handleDownArrowKey() {
+                    return nil  // 事件已处理
+                }
+            }
+            
+            // 处理Return键
+            else if event.keyCode == 36 {  // Return键
+                if handleReturnKey() {
+                    return nil  // 事件已处理
+                }
+            }
+            
+            return event  // 让事件继续传递
+        }
+    }
+    
+    // 处理Escape键
+    private func handleEscapeKey() -> Bool {
+        if showingAIResponse {
+            showingAIResponse = false
+            aiService.cancelStream()
+            adjustWindowHeight()
+            return true
+        }
+        if showingFileSearch {
+            withAnimation {
+                showingFileSearch = false
+            }
+            adjustWindowHeight()
+            return true
+        }
+        if !searchText.isEmpty {
+            searchText = ""
+            selectedIndex = nil
+            return true
+        }
+        if let window = NSApp.keyWindow {
+            window.close()
+            return true
+        }
+        return false
+    }
+    
+    // 处理上箭头键
+    private func handleUpArrowKey() -> Bool {
+        if showingFileSearch {
+            if !searchService.fileSearchResults.isEmpty {
+                if let currentIndex = selectedIndex {
+                    selectedIndex = max(0, currentIndex - 1)
+                } else {
+                    selectedIndex = searchService.fileSearchResults.count - 1
+                }
+            }
+        } else {
+            handleUpArrow()
+        }
+        return true
+    }
+    
+    // 处理下箭头键
+    private func handleDownArrowKey() -> Bool {
+        if showingFileSearch {
+            if !searchService.fileSearchResults.isEmpty {
+                if let currentIndex = selectedIndex {
+                    selectedIndex = min(searchService.fileSearchResults.count - 1, currentIndex + 1)
+                } else {
+                    selectedIndex = 0
+                }
+            }
+        } else {
+            handleDownArrow()
+        }
+        return true
+    }
+    
+    // 处理Return键
+    private func handleReturnKey() -> Bool {
+        if showingFileSearch {
+            if let selectedIndex = selectedIndex,
+               selectedIndex >= 0,
+               selectedIndex < searchService.fileSearchResults.count {
+                let result = searchService.fileSearchResults[selectedIndex]
+                searchService.openResult(result)
+                if let window = NSApp.keyWindow {
+                    window.close()
+                }
+                return true
+            }
+        } else {
+            if let selectedIndex = selectedIndex,
+               selectedIndex >= 0,
+               selectedIndex < displayResults.count {
+                handleSubmit()
+                return true
+            }
+        }
+        return false
     }
     
     private func handleScenePhaseChange(_ newPhase: ScenePhase) {
@@ -551,12 +544,20 @@ struct SpotlightView: View {
         
         isSearchFocused = true
         
-        if let lastSearchText = UserDefaults.standard.string(forKey: "LastSearchText") {
-            searchText = lastSearchText
-            searchService.search(query: lastSearchText)
-            
-            if let lastIndex = UserDefaults.standard.object(forKey: "LastSelectedIndex") as? Int {
-                selectedIndex = lastIndex
+        // 延迟执行，确保UI已完全加载
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if let lastSearchText = UserDefaults.standard.string(forKey: "LastSearchText"), !lastSearchText.isEmpty {
+                self.searchText = lastSearchText
+                self.searchService.search(query: lastSearchText)
+                
+                if let lastIndex = UserDefaults.standard.object(forKey: "LastSelectedIndex") as? Int {
+                    self.selectedIndex = lastIndex
+                } else {
+                    self.selectedIndex = 0
+                }
+                
+                // 确保窗口高度适应搜索结果
+                self.adjustWindowHeight()
             }
         }
     }
@@ -731,10 +732,21 @@ struct SpotlightView: View {
         DispatchQueue.main.async {
             // 使用ServiceReferences中保存的引用
             ServiceReferences.shared.searchService?.clearResults()
+            ServiceReferences.shared.searchService?.searchFiles(query: "") // 明确清空文件搜索结果
             ServiceReferences.shared.aiService?.cancelStream()
         }
         
         adjustWindowHeight()
+    }
+    
+    // 刷新当前搜索结果，用于窗口重新显示时
+    func refreshSearch() {
+        if !searchText.isEmpty {
+            // 重新执行搜索
+            searchService.search(query: searchText)
+            selectedIndex = 0
+            adjustWindowHeight()
+        }
     }
     
     private func handleSubmit() {
@@ -766,6 +778,7 @@ struct SpotlightView: View {
                 }
             } else if result.type == .file && result.path.isEmpty {
                 // 如果是文件搜索入口
+                searchService.searchFiles(query: searchText)
                 withAnimation {
                     showingFileSearch = true
                 }
@@ -803,7 +816,8 @@ struct SpotlightView: View {
                 adjustWindowHeight()
             }
         } else if result.type == .file && result.path.isEmpty {
-            // 如果是文件搜索入口
+            // 如果是文件搜索入口，只有此时才执行文件搜索
+            searchService.searchFiles(query: searchText)
             withAnimation {
                 showingFileSearch = true
             }
@@ -878,5 +892,164 @@ class SpotlightWindowDelegate: NSObject, NSWindowDelegate {
         UserDefaults.standard.set(NSStringFromRect(frame), forKey: "SpotlightWindowFrame")
         UserDefaults.standard.synchronize()
         window.close()
+    }
+}
+
+// 拆分出内容视图，减少主视图复杂度
+struct SpotlightViewContent: View {
+    let searchService: SearchService
+    let aiService: AIService
+    @Binding var searchText: String
+    @Binding var selectedIndex: Int?
+    @Binding var isSearchFocused: Bool
+    @Binding var showingAIResponse: Bool
+    @Binding var showingFileSearch: Bool
+    @Binding var height: CGFloat
+    @Binding var prompt: String
+    @Binding var aiResponseView: AIResponseView?
+    
+    let onClear: () -> Void
+    let handleItemClick: (SearchResult) -> Void
+    let handleEscape: () -> Void
+    let handleUpArrow: () -> Void
+    let handleDownArrow: () -> Void 
+    let handleSubmit: () -> Void
+    let adjustWindowHeight: () -> Void
+    let adjustWindowHeightWithContent: (CGFloat) -> Void
+    
+    // 用于获取要显示的结果
+    private var shouldShowAIOption: Bool {
+        searchText.count >= 3
+    }
+    
+    private var displayResults: [SearchResult] {
+        var results: [SearchResult] = []
+        
+        // 先添加AI入口
+        if shouldShowAIOption {
+            let aiResult = SearchResult(
+                id: UUID(),
+                name: "Ask AI: \(searchText)",
+                path: "",
+                type: .ai,
+                category: "AI",
+                icon: NSImage(systemSymbolName: "brain.fill", accessibilityDescription: nil) ?? NSImage(),
+                subtitle: "使用 AI 回答问题"
+            )
+            results.append(aiResult)
+        }
+        
+        // 添加应用程序和快捷指令搜索结果
+        results.append(contentsOf: searchService.searchResults)
+        
+        // 最后添加文件搜索入口
+        if !searchText.isEmpty {
+            let fileSearchResult = SearchResult(
+                id: UUID(),
+                name: "搜索文件: \(searchText)",
+                path: "",
+                type: .file,
+                category: "文件搜索",
+                icon: NSImage(systemSymbolName: "folder.fill", accessibilityDescription: nil) ?? NSImage(),
+                subtitle: "搜索本地文件"
+            )
+            results.append(fileSearchResult)
+        }
+        
+        return results
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            SearchBar(
+                searchText: $searchText,
+                onClear: onClear
+            )
+            .frame(height: 60)
+            
+            if showingAIResponse {
+                AIResponseView(
+                    aiService: aiService,
+                    prompt: searchText,
+                    onEscape: handleEscape,
+                    onHeightChange: { contentHeight in
+                        DispatchQueue.main.async {
+                            adjustWindowHeightWithContent(contentHeight)
+                        }
+                    },
+                    onViewCreated: { view in
+                        aiResponseView = view
+                    }
+                )
+            } else if showingFileSearch {
+                // 文件搜索二级视图
+                FileSearchView(
+                    searchService: searchService,
+                    searchText: $searchText,
+                    selectedIndex: $selectedIndex,
+                    onResultSelected: { result in
+                        searchService.openResult(result)
+                        if let window = NSApp.keyWindow {
+                            window.close()
+                        }
+                    },
+                    onResultsChanged: {
+                        adjustWindowHeight()
+                    }
+                )
+            } else if !searchText.isEmpty {
+                MainSearchResultsView(
+                    displayResults: displayResults,
+                    selectedIndex: $selectedIndex,
+                    onItemClick: handleItemClick
+                )
+            }
+        }
+    }
+}
+
+// 主搜索结果视图
+struct MainSearchResultsView: View {
+    let displayResults: [SearchResult]
+    @Binding var selectedIndex: Int?
+    let onItemClick: (SearchResult) -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            
+            if displayResults.isEmpty {
+                Text("无搜索结果")
+                    .foregroundColor(.secondary)
+                    .font(.system(size: 14))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+                    .frame(height: 60) // 设置最小高度，避免窗口过短
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(displayResults.enumerated()), id: \.element.id) { index, result in
+                                ResultRow(result: result, isSelected: index == selectedIndex)
+                                    .id(index)
+                                    .onTapGesture {
+                                        onItemClick(result)
+                                    }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        .onChange(of: selectedIndex) { newIndex in
+                            if let index = newIndex {
+                                withAnimation {
+                                    proxy.scrollTo(index, anchor: .center)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.95))
     }
 } 

@@ -36,7 +36,7 @@ struct FileSearchView: View {
                             }
                         }
                         .padding(.vertical, 8)
-                        .onChange(of: selectedIndex) { _, newIndex in
+                        .onChange(of: selectedIndex) { newIndex in
                             if let index = newIndex {
                                 withAnimation {
                                     proxy.scrollTo(index, anchor: .center)
@@ -47,19 +47,20 @@ struct FileSearchView: View {
                 }
             }
         }
-        .onChange(of: searchText) { _, newValue in
+        .onChange(of: searchText) { newValue in
             searchService.searchFiles(query: newValue)
             selectedIndex = searchService.fileSearchResults.isEmpty ? nil : 0
             // 通知主视图文件搜索结果已更新
             onResultsChanged()
         }
         .onAppear {
+            // 进入文件搜索视图时，确保已经执行了搜索
             searchService.searchFiles(query: searchText)
             selectedIndex = searchService.fileSearchResults.isEmpty ? nil : 0
             // 通知主视图文件搜索结果已更新
             onResultsChanged()
         }
-        .onChange(of: searchService.fileSearchResults) { _, _ in
+        .onChange(of: searchService.fileSearchResults) { _ in
             // 监听文件搜索结果变化，通知主视图调整高度
             onResultsChanged()
         }

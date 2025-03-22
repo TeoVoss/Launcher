@@ -597,7 +597,7 @@ struct AIResponseView: View {
                         updateTotalHeight()
                     }
                 }
-                .onChange(of: aiService.conversationHistory) { _, newValue in
+                .onChange(of: aiService.conversationHistory) { newValue in
                     // 当对话历史更新时（添加新消息或现有消息更新内容），滚动到最新消息
                     if !newValue.isEmpty {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -623,7 +623,7 @@ struct AIResponseView: View {
                 await aiService.streamChat(prompt: prompt)
             }
         }
-        .onChange(of: prompt) { oldValue, newValue in
+        .onChange(of: prompt) { newValue in
             // 更新当前记录的提示，但不触发请求
             // 请求将由SpotlightView的handleSubmit方法在用户按下Enter时触发
             currentPrompt = newValue

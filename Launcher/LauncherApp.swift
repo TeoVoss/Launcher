@@ -50,6 +50,7 @@ struct LauncherApp: App {
 // 专门用于加载设置视图的组件
 struct SettingsViewLoader: View {
     @State private var settingsManager: SettingsManager?
+    @State private var shouldOpenSettings = false
     
     var body: some View {
         Group {
@@ -62,6 +63,14 @@ struct SettingsViewLoader: View {
                             settingsManager = AppManager.shared.getSettingsManager()
                         }
                     }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("OpenSettingsNotification"))) { _ in
+            // 收到通知后打开设置 - 不再使用openSettings()
+            shouldOpenSettings = true
+            // 使用其他方式打开设置窗口
+            if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "com.apple.SwiftUI.Settings.window" }) {
+                window.makeKeyAndOrderFront(nil)
             }
         }
     }
@@ -105,7 +114,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // 创建菜单
             let menu = NSMenu()
             
-            // 添加设置菜单项
+            // 添加设置菜单项 - 支持中英文逗号快捷键
             let settingsItem = NSMenuItem(title: "设置", action: #selector(openSettings), keyEquivalent: ",")
             settingsItem.target = self
             menu.addItem(settingsItem)
@@ -122,6 +131,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.action = #selector(statusItemClicked)
             button.target = self
         }
+        
+        // 监听 Command+, 快捷键
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.modifierFlags.contains(.command) && 
+               (event.charactersIgnoringModifiers == "," || event.charactersIgnoringModifiers == "，") {
+                if self?.window?.isVisible == true && self?.window?.isKeyWindow == true {
+                    self?.openSettings()
+                    return nil // 已处理
+                }
+            }
+            return event
+        }
     }
     
     @objc private func statusItemClicked(sender: NSStatusBarButton) {
@@ -137,9 +158,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func openSettings() {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        if window?.isVisible == true && window?.isKeyWindow == true {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+            
+            // 使用SwiftUI Settings打开系统设置
+            let settingsAction = Selector(("_showSettingsWindow:"))
+            if NSApp.responds(to: settingsAction) {
+                NSApp.perform(settingsAction, with: nil)
+            }
+        }
     }
     
     private func setupMainWindow() {
@@ -245,7 +273,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             // 设置焦点到搜索框
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.spotlightView?.requestFocus()
+                guard let self = self, let spotlightView = self.spotlightView else { return }
+                spotlightView.requestFocus()
+                
+                // 如果有保存的搜索文本，确保重新执行搜索
+                if let lastSearchText = UserDefaults.standard.string(forKey: "LastSearchText"), !lastSearchText.isEmpty {
+                    spotlightView.refreshSearch()
+                }
             }
         }
     }
