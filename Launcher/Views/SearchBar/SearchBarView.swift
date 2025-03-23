@@ -100,6 +100,8 @@ struct SearchBarView: View {
                 // 拖动层 - 永远存在
                 DraggableView()
                     .allowsHitTesting(true) 
+                    // 使用调试工具控制边框显示
+                    .debugBorder(.yellow, width: 0.5)
                 
                 // 输入区域 - 固定结构
                 HStack(spacing: 8) {
@@ -127,8 +129,12 @@ struct SearchBarView: View {
                                 // 确保保持焦点
                                 isFocused = true
                             }
+                            // 使用调试工具控制边框显示
+                            .debugBorder(.blue, width: 0.5)
                     }
                     .frame(maxWidth: .infinity, maxHeight: searchBarHeight, alignment: .leading)
+                    // 使用调试工具控制边框显示
+                    .debugBorder(.green, width: 0.5)
                     
                     // 清除按钮区域 - 固定存在，通过opacity控制
                     ZStack {
@@ -177,9 +183,11 @@ struct SearchBarView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(height: searchBarHeight)
+                // 使用调试工具控制边框显示
+                .debugBorder(.red, width: 0.5)
             }
             .frame(height: searchBarHeight)
-            .padding(.vertical, 8)
+            .padding(.vertical, 4) // 减少垂直内边距，从8减为4，确保整体高度为52
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color(nsColor: .windowBackgroundColor))
@@ -188,6 +196,7 @@ struct SearchBarView: View {
         }
         // 固定ID确保视图不重建
         .id(Self.viewIdentifier)
+        .reportSize(name: "SearchBarView-Outer") // 报告尺寸以便调试
         .onAppear {
             // 初始化视图状态
             isTextEmpty = searchText.isEmpty

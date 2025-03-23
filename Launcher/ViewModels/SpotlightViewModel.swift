@@ -38,11 +38,7 @@ class SpotlightViewModel: ObservableObject {
     @Published var selectedIndex: Int?
     @Published var showingAIResponse = false
     @Published var showingFileSearch = false
-    @Published var height: CGFloat = 60
     @Published var prompt: String = ""
-    
-    // 当前内容高度（不包括搜索框）
-    @Published var contentHeight: CGFloat = 0
     
     // 标记搜索中状态，但不影响高度计算
     private(set) var isSearching = false
@@ -52,16 +48,8 @@ class SpotlightViewModel: ObservableObject {
     // 记录上次结果数量，用于判断是否需要更新高度
     private var lastResultCount: Int = 0
     
-    // 当前视图模式
-    var currentMode: ViewMode {
-        if showingAIResponse {
-            return .aiResponse
-        } else if showingFileSearch {
-            return .fileSearch
-        } else {
-            return .search
-        }
-    }
+    // 引用HeightManager
+    private let heightManager = HeightManager.shared
     
     let searchService: SearchService
     let aiService: AIService
@@ -155,7 +143,17 @@ class SpotlightViewModel: ObservableObject {
             .sink { [weak self] results in
                 guard let self = self else { return }
                 print("【搜索结果】文件搜索完成，获得\(results.count)个结果")
-                self.updateFileSearchResultsHeight(results)
+                
+                // 文件搜索结果更新 - 使用HeightManager
+                if self.showingFileSearch {
+                    let itemCount = results.count
+                    let contentHeight = max(
+                        LauncherSize.Fixed.minFileSearchHeight,
+                        LauncherSize.calculateHeightForItems(itemCount)
+                    )
+                    // 更新高度
+                    self.heightManager.updateContentHeight(contentHeight, source: "FileSearchResults")
+                }
             }
             .store(in: &cancellables)
             
@@ -168,45 +166,28 @@ class SpotlightViewModel: ObservableObject {
                 guard let self = self else { return }
                 print("模式变化: AI=\(showingAI), 文件=\(showingFile)")
                 
+                // 根据状态决定视图模式
                 let viewMode: ViewMode
                 if showingAI {
                     viewMode = .aiResponse
+                    // 切换到AI模式
+                    self.heightManager.switchToMode(.aiResponse)
                 } else if showingFile {
                     viewMode = .fileSearch
+                    // 切换到文件搜索模式
+                    self.heightManager.switchToMode(.fileSearch)
                 } else {
                     viewMode = .search
+                    // 切换回普通搜索模式，使用现有结果计算高度
+                    if !self._cachedDisplayResults.isEmpty {
+                        self.heightManager.calculateHeightForResults(self._cachedDisplayResults)
+                    } else {
+                        // 无结果则回到初始状态
+                        self.heightManager.switchToMode(.search)
+                    }
                 }
-                
-                // 模式切换使用一次性操作，避免循环
-                self.handleModeChange(to: viewMode)
             }
             .store(in: &cancellables)
-    }
-    
-    // 处理模式变化的统一函数 - 避免重复代码
-    private func handleModeChange(to mode: ViewMode) {
-        switch mode {
-        case .aiResponse:
-            // AI视图模式
-            WindowCoordinator.shared.handleModeTransition(
-                to: .aiResponse,
-                customHeight: LauncherSize.Fixed.searchBarHeight + LauncherSize.Fixed.minAIContentHeight
-            )
-        case .fileSearch:
-            // 文件搜索模式 - 先使用最小高度，后续会根据结果数量更新
-            WindowCoordinator.shared.handleModeTransition(
-                to: .fileSearch,
-                customHeight: LauncherSize.Fixed.searchBarHeight + LauncherSize.Fixed.minFileSearchHeight
-            )
-        case .search:
-            // 常规搜索模式 - 直接启动结果计算，只有当前无结果时才重新搜索
-            if _cachedDisplayResults.isEmpty && !searchText.isEmpty {
-                self.updateSearchResults(for: self.searchText)
-            } else {
-                // 已有结果则直接更新窗口高度
-                self.updateSearchResultsHeight()
-            }
-        }
     }
     
     // 更新搜索结果 - 添加更智能的处理逻辑
@@ -231,14 +212,8 @@ class SpotlightViewModel: ObservableObject {
                 self.isSearching = false
                 self.selectedIndex = nil
                 
-                // 2. 更新高度状态
-                self.contentHeight = 0
-                self.height = 60
-                
-                // 3. 延迟重置窗口高度，确保UI状态稳定
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    WindowCoordinator.shared.resetWindowHeight()
-                }
+                // 2. 更新高度状态 - 使用HeightManager
+                self.heightManager.resetToInitialState()
             }
             return
         }
@@ -336,79 +311,24 @@ class SpotlightViewModel: ObservableObject {
             self._cachedDisplayResults = entries
             self.lastResultCount = entries.count
             
-            // 更新高度
-            self.updateSearchResultsHeight()
+            // 更新高度 - 使用HeightManager
+            // 只在普通搜索模式下更新高度
+            if !self.showingAIResponse && !self.showingFileSearch {
+                if entries.isEmpty {
+                    // 无结果时恢复初始高度
+                    self.heightManager.resetToInitialState()
+                } else {
+                    // 有结果时计算新高度
+                    let newHeight = self.heightManager.calculateHeightForResults(entries)
+                    // 无需额外调用，calculateHeightForResults已经更新了状态
+                }
+            }
             
             // 确保有结果时选中第一项
             if !entries.isEmpty && self.selectedIndex == nil {
                 self.selectedIndex = 0
             }
         }
-    }
-    
-    // 更新普通搜索结果高度
-    private func updateSearchResultsHeight() {
-        let results = displayResults
-        print("更新搜索结果高度: 结果数 \(results.count)")
-        
-        // 当无结果时使用最小高度
-        if results.isEmpty && !searchText.isEmpty {
-            // 设置为基础高度，不显示内容区域
-            let newHeight = LauncherSize.Fixed.searchBarHeight
-            
-            // 更新本地高度状态
-            self.contentHeight = 0
-            self.height = newHeight
-            
-            // 通过协调器更新窗口
-            WindowCoordinator.shared.updateWindowHeight(to: newHeight)
-            return
-        }
-        
-        // 计算窗口高度
-        let newHeight = LauncherSize.getHeightForMode(.search, itemCount: results.count)
-        
-        // 更新本地高度状态
-        self.contentHeight = newHeight - LauncherSize.Fixed.searchBarHeight
-        self.height = newHeight
-        
-        // 通过协调器更新窗口
-        WindowCoordinator.shared.updateWindowHeight(to: newHeight)
-    }
-    
-    // 更新文件搜索结果高度
-    private func updateFileSearchResultsHeight(_ results: [SearchResult]) {
-        print("更新文件搜索高度: 结果数 \(results.count)")
-        
-        // 计算窗口高度
-        let newHeight = LauncherSize.getHeightForMode(.fileSearch, itemCount: results.count)
-        
-        // 更新本地高度状态
-        self.contentHeight = newHeight - LauncherSize.Fixed.searchBarHeight
-        self.height = newHeight
-        
-        // 通过协调器更新窗口
-        WindowCoordinator.shared.updateWindowHeight(to: newHeight)
-    }
-    
-    // 直接更新高度
-    func updateContentHeight(_ newContentHeight: CGFloat) {
-        let mode = self.currentMode
-        
-        // 计算窗口高度
-        let totalHeight = LauncherSize.getHeightForCustomContent(newContentHeight, mode: mode)
-        
-        // 更新高度状态
-        self.contentHeight = newContentHeight
-        self.height = totalHeight
-        
-        // 立即调整窗口高度
-        WindowCoordinator.shared.updateWindowHeight(to: totalHeight)
-    }
-    
-    func performSearch(text: String) {
-        // 使用统一的搜索结果管理方法
-        updateSearchResults(for: text)
     }
     
     func handleItemClick(_ result: SearchResult) {
@@ -447,14 +367,6 @@ class SpotlightViewModel: ObservableObject {
         }
     }
     
-    // 直接设置AI内容高度的方法（供AIResponseView调用）
-    func setAIContentHeight(_ height: CGFloat) {
-        if showingAIResponse {
-            print("更新AI内容高度: \(height)")
-            updateContentHeight(height)
-        }
-    }
-    
     func resetSearch() {
         print("重置所有搜索状态")
         
@@ -462,30 +374,21 @@ class SpotlightViewModel: ObservableObject {
         searchService.clearResults()
         searchService.fileSearchResults = []
         
-        // 使用两阶段清理，先清除文本，再调整窗口大小
-        // 阶段一：清除UI状态
+        // 批量更新UI状态
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
-            // 先保存当前高度
-            let oldHeight = self.height
-            
-            // 重置搜索状态 - 但推迟高度调整
+            // 重置搜索文本和状态
             self.searchText = ""
             self.selectedIndex = nil
             self.showingAIResponse = false
             self.showingFileSearch = false
             
-            // 重置本地高度状态
-            self.contentHeight = 0
-            self.height = 60
+            // 重置缓存结果
+            self._cachedDisplayResults = []
             
-            // 阶段二：延迟调整窗口大小
-            let delay = oldHeight > 200 ? 0.15 : 0.1
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                // 调整窗口大小 - 使用协调器，确保动画平滑
-                WindowCoordinator.shared.resetWindowHeight()
-            }
+            // 重置高度 - 使用HeightManager
+            self.heightManager.resetToInitialState()
         }
     }
     
@@ -494,9 +397,9 @@ class SpotlightViewModel: ObservableObject {
         NotificationCenter.default.post(name: Notification.Name("RequestSearchFocus"), object: nil)
     }
     
-    // 从AI或文件搜索视图返回 - 使用协调器
+    // 从AI或文件搜索视图返回
     func exitCurrentMode() {
-        print("退出当前模式: \(currentMode)")
+        print("退出当前模式")
         
         // 记住当前搜索文本
         let currentText = searchText
@@ -504,7 +407,7 @@ class SpotlightViewModel: ObservableObject {
         // 退出文件搜索模式到普通搜索模式的特殊处理
         let wasInFileSearch = showingFileSearch
         
-        // 清空所有状态
+        // 清空模式状态
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
@@ -513,10 +416,8 @@ class SpotlightViewModel: ObservableObject {
             self.showingFileSearch = false
             self.selectedIndex = nil
             
-            // 2. 重置高度 - 使用协调器，避免闪烁
-            self.contentHeight = 0
-            self.height = LauncherSize.Fixed.searchBarHeight
-            WindowCoordinator.shared.handleModeTransition(to: .search)
+            // 2. 重置高度 - 使用HeightManager
+            self.heightManager.switchToMode(.search)
             
             // 3. 彻底清空搜索服务中的结果
             if wasInFileSearch {
@@ -532,5 +433,10 @@ class SpotlightViewModel: ObservableObject {
                 self.performSearch(text: currentText)
             }
         }
+    }
+    
+    // 辅助方法
+    func performSearch(text: String) {
+        updateSearchResults(for: text)
     }
 } 

@@ -12,14 +12,14 @@ struct ResultListView: View {
     @State private var lastResultCount: Int = 0
     @State private var didSetupInitial: Bool = false
     
+    // 添加高度管理引用
+    @ObservedObject private var heightManager = HeightManager.shared
+    
     var body: some View {
-        // 创建稳定的内容，无论结果有无都保持一致的结构
+        // 使用稳定的内容，无论结果有无都保持一致的结构
         ScrollViewReader { proxy in
-            ScrollView {
-                // 添加锚点用于滚动到顶部
-                Color.clear.frame(height: 0).id("top")
-                
-                // 使用VStack而不是LazyVStack，确保布局一次性计算完成
+            ScrollView(showsIndicators: false) {
+                // 添加锚点但不占用空间
                 VStack(spacing: 0) {
                     // 条件内容 - 只在有结果时渲染项目
                     if !results.isEmpty {
@@ -45,11 +45,14 @@ struct ResultListView: View {
                             .frame(height: 0)
                     }
                 }
-                // 添加上方内边距，但不添加底部内边距，避免不必要的空间
-                .padding(.top, LauncherSize.Fixed.verticalPadding)
+                .id("top") // 移动锚点ID到VStack上
             }
-            // 移除滚动指示器，优化视觉效果
-            .scrollIndicators(.hidden)
+            // 确保ScrollView填满整个空间，没有任何间距
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // 明确设置ScrollView四边的内边距为零，消除默认边距
+            .padding(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+            // 移除任何可能的内边距
+            .padding(0)
             // 简单的初始化逻辑 - 使用onAppear和onChange分开处理
             .onAppear {
                 if !didSetupInitial {
@@ -104,5 +107,12 @@ struct ResultListView: View {
         }
         // 添加稳定ID，确保视图不会被重建
         .id(Self.stableViewId)
+        // 添加报告尺寸功能
+        .reportSize(name: "ResultListView-Outer") { size in
+            // 检测到尺寸变化时，更新调试信息
+            if !results.isEmpty && heightManager.currentMode == .search {
+                print("结果列表尺寸变化: \(size)")
+            }
+        }
     }
 } 

@@ -25,6 +25,14 @@ class AppManager {
         }
         return _settingsManager!
     }
+    
+    // 设置调试模式的便捷方法
+    @MainActor
+    func setDebugMode(enabled: Bool) {
+        DebugTools.setDebugMode(enabled: enabled)
+        // 发送通知，让UI组件刷新
+        NotificationCenter.default.post(name: Notification.Name("DebugModeChanged"), object: nil)
+    }
 }
 
 @main
@@ -88,6 +96,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     // 标准的应用启动方法
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 初始化调试模式设置 - 默认关闭
+        DebugTools.setDebugMode(enabled: false)
+        
         // 在主线程上异步初始化UI组件
         Task { @MainActor in
             // 获取设置
@@ -130,6 +141,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let settingsItem = NSMenuItem(title: "设置", action: #selector(openSettings), keyEquivalent: ",")
             settingsItem.target = self
             menu.addItem(settingsItem)
+            
+            // 添加调试模式菜单项
+            let debugItem = NSMenuItem(title: "调试模式", action: #selector(toggleDebugMode), keyEquivalent: "")
+            debugItem.target = self
+            menu.addItem(debugItem)
             
             // 添加分隔线
             menu.addItem(NSMenuItem.separator())
@@ -178,6 +194,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let settingsAction = Selector(("_showSettingsWindow:"))
             if NSApp.responds(to: settingsAction) {
                 NSApp.perform(settingsAction, with: nil)
+            }
+        }
+    }
+    
+    @objc private func toggleDebugMode() {
+        Task { @MainActor in
+            // 切换调试模式
+            let newState = !DebugTools.debugModeEnabled
+            AppManager.shared.setDebugMode(enabled: newState)
+            
+            // 更新菜单项状态
+            if let debugItem = statusItem?.menu?.item(withTitle: "调试模式") {
+                debugItem.state = newState ? .on : .off
             }
         }
     }

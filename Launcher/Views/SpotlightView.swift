@@ -7,6 +7,7 @@ import AppKit
 struct SpotlightView: View {
     @StateObject private var viewModel: SpotlightViewModel
     @Environment(\.scenePhase) var scenePhase
+    @ObservedObject private var heightManager = HeightManager.shared
     
     init(aiService: AIService) {
         let searchService = SearchService()
@@ -29,6 +30,7 @@ struct SpotlightView: View {
                 }
             )
             .frame(height: 60)  // 明确总高度为60像素（包含内边距）
+            .reportSize(name: "SearchBarView")
             
             // 内容区域 - 创建稳定容器，防止重新创建
             ZStack {
@@ -44,12 +46,14 @@ struct SpotlightView: View {
                             viewModel.exitCurrentMode()
                         },
                         onHeightChange: { newHeight in
-                            viewModel.setAIContentHeight(newHeight)
+                            // 修改：使用HeightManager更新高度
+                            heightManager.updateContentHeight(newHeight, source: "AIResponseView")
                         }
                     )
                     .transition(.opacity)
                     // 关键点：使用固定ID
                     .id("AIResponseView")
+                    .reportSize(name: "AIResponseView")
                 }
                 
                 // 3. 显示文件搜索
@@ -68,6 +72,7 @@ struct SpotlightView: View {
                     .transition(.opacity)
                     // 关键点：使用固定ID
                     .id("FileSearchView")
+                    .reportSize(name: "FileSearchView")
                 }
                 
                 // 4. 显示搜索结果 - 关键点：始终存在，仅通过条件隐藏，而不是移除重建
@@ -83,22 +88,23 @@ struct SpotlightView: View {
                          !viewModel.showingAIResponse && !viewModel.showingFileSearch) ? 1 : 0)
                 .allowsHitTesting((!viewModel.searchText.isEmpty && !viewModel.displayResults.isEmpty && 
                                   !viewModel.showingAIResponse && !viewModel.showingFileSearch))
+                .reportSize(name: "ResultListView")
                 .contentHeightReader { height in
                     // 只在显示时才更新高度
                     if height > 0 && !viewModel.showingAIResponse && !viewModel.showingFileSearch && 
                        !viewModel.displayResults.isEmpty {
-                        Task { 
-                            await MainActor.run {
-                                viewModel.updateContentHeight(height)
-                            }
-                        }
+                        // 修改：使用HeightManager更新高度
+                        heightManager.updateContentHeight(height, source: "ResultListView")
                     }
                 }
             }
+            .padding(.top, 0) // 确保内容区域顶部无间距
+            .padding(.all, 0) // 确保四边都没有间距
         }
         // 固定整个视图树的ID
         .id("MainSpotlightView")
-        .frame(width: 680, height: viewModel.height)
+        // 修改：使用HeightManager的高度
+        .frame(width: 680, height: heightManager.currentHeight)
         .background(Color(nsColor: .windowBackgroundColor))
         .cornerRadius(8)
         .onAppear {
@@ -109,6 +115,9 @@ struct SpotlightView: View {
                 viewModel.requestFocus()
             }
         }
+        // 添加调试信息面板
+        .debugInfo(heightManager.debugInfo)
+        .reportSize(name: "SpotlightView")
     }
     
     private func setupKeyboardHandling() {

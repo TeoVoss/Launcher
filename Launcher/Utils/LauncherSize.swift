@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// 集中管理启动器大小计算的工具类
 struct LauncherSize {
@@ -11,7 +12,7 @@ struct LauncherSize {
         static let rowHeight: CGFloat = 48
         
         /// 垂直内边距 - 确保只在顶部添加
-        static let verticalPadding: CGFloat = 8
+        static let verticalPadding: CGFloat = 0
         
         /// 最小内容高度
         static let minContentHeight: CGFloat = 0
@@ -67,8 +68,8 @@ struct LauncherSize {
     private static func getContentHeightForItems(_ count: Int) -> CGFloat {
         guard count > 0 else { return 0 }
         
-        // 计算所有项目高度 + 仅顶部的垂直内边距
-        let rawHeight = CGFloat(count) * Fixed.rowHeight + Fixed.verticalPadding
+        // 计算所有项目高度，不添加额外内边距
+        let rawHeight = CGFloat(count) * Fixed.rowHeight
         
         // 限制最大高度，避免窗口过大
         return min(rawHeight, 400)
@@ -108,7 +109,8 @@ struct LauncherSize {
         if itemCount == 0 {
             return 0
         }
-        return CGFloat(itemCount) * Fixed.rowHeight + Fixed.verticalPadding * 2
+        // 修改：移除垂直内边距，只计算行高
+        return CGFloat(itemCount) * Fixed.rowHeight
     }
     
     /// 计算最终窗口高度，考虑屏幕限制
@@ -118,5 +120,168 @@ struct LauncherSize {
         // 考虑屏幕限制
         let maxScreenHeight = (NSScreen.main?.frame.height ?? 1000) * 0.7
         return min(totalHeight, maxScreenHeight)
+    }
+}
+
+/// 全局高度管理器 - 集中管理所有视图高度计算和更新
+@MainActor
+class HeightManager: ObservableObject {
+    static let shared = HeightManager()
+    
+    // 高度相关状态
+    @Published var currentHeight: CGFloat = LauncherSize.Fixed.searchBarHeight
+    @Published var contentHeight: CGFloat = 0
+    @Published var currentMode: ViewMode = .search
+    
+    // 调试状态
+    @Published var lastUpdateSource: String = ""
+    @Published var debugMode: Bool = false
+    
+    // 防止频繁更新的节流机制
+    private var heightUpdateTask: Task<Void, Never>? = nil
+    private var isUpdating: Bool = false
+    
+    private init() {
+        // 初始化时不需要特殊逻辑
+    }
+    
+    /// 更新内容高度的统一入口
+    func updateContentHeight(_ newHeight: CGFloat, source: String) {
+        // 记录更新来源，用于调试
+        self.lastUpdateSource = source
+        
+        // 检查是否是有意义的变化
+        guard abs(self.contentHeight - newHeight) > 1.0 else {
+            print("【高度管理】忽略微小高度变化: \(self.contentHeight) -> \(newHeight)")
+            return
+        }
+        
+        // 取消之前的任务
+        heightUpdateTask?.cancel()
+        
+        // 创建新的更新任务
+        heightUpdateTask = Task {
+            // 如果已经在更新中，等待一段时间
+            if isUpdating {
+                try? await Task.sleep(nanoseconds: 50_000_000) // 50毫秒
+            }
+            
+            // 标记更新开始
+            isUpdating = true
+            
+            // 限制高度在合理范围内
+            let newTotalHeight = calculateHeightForMode(self.currentMode, contentHeight: newHeight)
+            
+            // 更新状态
+            self.contentHeight = newHeight
+            self.currentHeight = newTotalHeight
+            
+            // 应用窗口高度变化
+            WindowCoordinator.shared.updateWindowHeight(to: newTotalHeight, animated: true)
+            
+            // 延迟一段时间后重置更新状态
+            try? await Task.sleep(nanoseconds: 200_000_000) // 200毫秒
+            isUpdating = false
+            
+            print("【高度管理】高度更新完成: \(newTotalHeight), 来源: \(source)")
+        }
+    }
+    
+    /// 切换视图模式
+    func switchToMode(_ mode: ViewMode, initialContentHeight: CGFloat? = nil) {
+        // 保存当前模式
+        let oldMode = self.currentMode
+        self.currentMode = mode
+        
+        // 根据模式计算初始高度
+        let newContentHeight: CGFloat
+        if let height = initialContentHeight {
+            newContentHeight = height
+        } else {
+            switch mode {
+            case .search:
+                newContentHeight = 0
+            case .fileSearch:
+                newContentHeight = LauncherSize.Fixed.minFileSearchHeight
+            case .aiResponse:
+                newContentHeight = LauncherSize.Fixed.minAIContentHeight
+            }
+        }
+        
+        // 更新高度
+        self.contentHeight = newContentHeight
+        self.currentHeight = calculateHeightForMode(mode, contentHeight: newContentHeight)
+        
+        // 应用到窗口 - 根据模式变化决定是否使用动画
+        let shouldAnimate = !(oldMode == .search && mode != .search && newContentHeight > 200)
+        WindowCoordinator.shared.updateWindowHeight(to: self.currentHeight, animated: shouldAnimate)
+        
+        print("【高度管理】模式切换: \(oldMode) -> \(mode), 新高度: \(self.currentHeight)")
+    }
+    
+    /// 重置到初始状态
+    func resetToInitialState() {
+        // 重置所有状态
+        self.currentMode = .search
+        self.contentHeight = 0
+        self.currentHeight = LauncherSize.Fixed.searchBarHeight
+        
+        // 应用到窗口
+        WindowCoordinator.shared.resetWindowHeight()
+        
+        print("【高度管理】重置到初始状态")
+    }
+    
+    /// 计算特定模式下的总高度
+    private func calculateHeightForMode(_ mode: ViewMode, contentHeight: CGFloat) -> CGFloat {
+        let minHeight: CGFloat
+        let maxHeight: CGFloat
+        
+        // 根据模式设置限制
+        switch mode {
+        case .search:
+            minHeight = LauncherSize.HeightLimits.searchMin
+            maxHeight = LauncherSize.HeightLimits.searchMax
+        case .fileSearch:
+            minHeight = LauncherSize.HeightLimits.fileSearchMin
+            maxHeight = LauncherSize.HeightLimits.fileSearchMax
+        case .aiResponse:
+            minHeight = LauncherSize.HeightLimits.aiResponseMin
+            maxHeight = LauncherSize.HeightLimits.aiResponseMax
+        }
+        
+        // 计算并限制在合理范围内
+        let calculatedHeight = LauncherSize.Fixed.searchBarHeight + contentHeight
+        let constrainedHeight = max(minHeight, min(calculatedHeight, maxHeight))
+        
+        return constrainedHeight
+    }
+    
+    /// 计算基于搜索结果项目数量的高度
+    func calculateHeightForResults(_ results: [SearchResult]) -> CGFloat {
+        if results.isEmpty {
+            return LauncherSize.Fixed.searchBarHeight
+        }
+        
+        // 计算内容高度并更新
+        let itemCount = results.count
+        let newContentHeight = LauncherSize.calculateHeightForItems(itemCount)
+        self.contentHeight = newContentHeight
+        
+        // 计算总高度
+        let totalHeight = calculateHeightForMode(.search, contentHeight: newContentHeight)
+        self.currentHeight = totalHeight
+        
+        return totalHeight
+    }
+    
+    /// 获取调试信息
+    var debugInfo: String {
+        return """
+        模式: \(currentMode)
+        内容高度: \(Int(contentHeight))
+        总高度: \(Int(currentHeight))
+        最后更新来源: \(lastUpdateSource)
+        """
     }
 } 
