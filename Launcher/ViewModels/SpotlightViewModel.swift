@@ -24,6 +24,10 @@ class SpotlightViewModel: ObservableObject {
     
     // 标记搜索中状态
     @Published var isSearching = false
+    @Published var isAILoading = false
+    
+    // 文件搜索结果分页状态
+    @Published var fileResultsPage: Int = 0
     
     // 缓存的显示结果，避免重复计算
     private var _cachedDisplayResults: [SearchResult] = []
@@ -155,21 +159,34 @@ class SpotlightViewModel: ObservableObject {
     
     // 切换AI响应的展开/折叠状态
     func toggleAIResponse() {
-        aiResponseExpanded.toggle()
-        
-        if aiResponseExpanded {
-            // 展开AI响应时设置提示词并请求AI响应
-            self.prompt = searchText
-            Task {
-                await aiService.streamChat(prompt: searchText)
-            }
-        } else {
-            // 折叠时重置提示词
-            self.prompt = ""
+        // 首次展开时，记录当前搜索文本作为prompt
+        if !aiResponseExpanded && !searchText.isEmpty {
+            prompt = searchText
+            sendAIRequest()
         }
         
-        // 重新聚焦到搜索框
-        requestFocus()
+        withAnimation {
+            aiResponseExpanded.toggle()
+            if !aiResponseExpanded {
+                // 关闭时取消所有AI请求
+                aiService.cancelRequests()
+                isAILoading = false
+            }
+        }
+    }
+    
+    // 发送AI请求
+    func sendAIRequest() {
+        guard !prompt.isEmpty else { return }
+        
+        isAILoading = true
+        
+        Task {
+            await aiService.sendRequest(prompt: prompt.trim())
+            await MainActor.run {
+                isAILoading = false
+            }
+        }
     }
     
     // 切换文件搜索的展开/折叠状态
@@ -191,24 +208,44 @@ class SpotlightViewModel: ObservableObject {
         requestFocus()
     }
     
-    // 处理提交动作
+    // 处理提交搜索、发起AI请求
     func handleSubmit() {
         if aiResponseExpanded {
-            // 在AI视图中按提交键，应直接发送当前问题
+            // 如果AI面板已经展开，向AI提交查询
+            prompt = searchText
+            
+            // 设置加载状态
+            isAILoading = true
+            
+            // 执行AI查询
             Task {
-                print("在AI视图中提交问题: \(searchText)")
-                await aiService.streamChat(prompt: searchText)
+                do {
+                    try await aiService.sendQuery(prompt)
+                    
+                    // 完成后更新状态
+                    await MainActor.run {
+                        isAILoading = false
+                    }
+                } catch {
+                    // 错误处理
+                    await MainActor.run {
+                        isAILoading = false
+                        // 可以添加错误提示
+                    }
+                }
             }
-        } else if fileSearchExpanded {
-            // 在文件搜索视图中按提交键
-            if let index = selectedFileIndex, 
-               index < searchService.fileSearchResults.count {
+        } else if selectedIndex != nil {
+            // 如果已经选中搜索结果，执行选中项
+            if let index = selectedIndex, index < displayResults.count {
+                let result = displayResults[index]
+                handleItemClick(result)
+            }
+        } else if fileSearchExpanded && selectedFileIndex != nil {
+            // 如果文件搜索已展开且选中了文件结果
+            if let index = selectedFileIndex, index < searchService.fileSearchResults.count {
                 let result = searchService.fileSearchResults[index]
                 searchService.executeResult(result)
             }
-        } else if let index = selectedIndex, index < displayResults.count {
-            // 在搜索结果中选择一项
-            handleItemClick(displayResults[index])
         }
     }
     
@@ -240,5 +277,14 @@ class SpotlightViewModel: ObservableObject {
     func requestFocus() {
         // 通过NotificationCenter发送请求焦点通知
         NotificationCenter.default.post(name: Notification.Name("RequestSearchFocus"), object: nil)
+    }
+    
+    // 加载更多文件结果
+    func loadMoreFileResults() {
+        fileResultsPage += 1
+        // 实现加载更多文件结果的逻辑
+        Task {
+            await searchService.searchMoreFiles(query: searchText, page: fileResultsPage)
+        }
     }
 } 

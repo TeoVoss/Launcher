@@ -544,62 +544,82 @@ struct AIResponseView: View {
     var onHeightChange: (CGFloat) -> Void
     
     @State private var contentHeight: CGFloat = 0
-    @State private var isLoading: Bool = false
+    @State private var scrollViewHeight: CGFloat = 0
+    @State private var isScrollable: Bool = false
+    
+    let minHeight: CGFloat = 100
+    let maxHeight: CGFloat = 600
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if aiService.isGenerating {
-                // 正在生成内容
-                HStack {
+        VStack(alignment: .leading, spacing: 0) {
+            // 显示内容或加载指示器
+            if aiService.isLoading && aiService.response.isEmpty {
+                // 加载中显示指示器
+                VStack(alignment: .center) {
                     ProgressView()
-                        .scaleEffect(0.7)
-                        .progressViewStyle(CircularProgressViewStyle())
-                    Text("AI 正在思考...")
-                        .font(.callout)
-                        .foregroundColor(.secondary)
+                        .scaleEffect(1)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 30)
                 }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, 10)
-            } else if let response = aiService.response, !response.isEmpty {
-                // 已生成内容
-                ScrollView {
-                    MarkdownContentView(content: response)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(maxHeight: 200)
-            } else {
-                // 无内容时的提示
-                Text("询问 AI 关于: \(prompt)")
-                    .font(.callout)
+                .frame(height: minHeight)
+            } else if aiService.response.isEmpty {
+                // 未开始或未收到响应
+                Text("AI正在等待您的问题...")
                     .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 10)
+                    .padding()
+                    .frame(height: minHeight)
+            } else {
+                // 显示响应内容
+                ScrollView {
+                    MarkdownContentView(markdown: aiService.response)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear.onAppear {
+                                    contentHeight = geo.size.height
+                                    updateHeight()
+                                }
+                                .onChange(of: geo.size.height) { newHeight in
+                                    contentHeight = newHeight
+                                    updateHeight()
+                                }
+                            }
+                        )
+                }
+                .frame(height: min(max(contentHeight, minHeight), maxHeight))
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.onAppear {
+                            scrollViewHeight = geo.size.height
+                            isScrollable = contentHeight > scrollViewHeight
+                        }
+                        .onChange(of: geo.size.height) { newHeight in
+                            scrollViewHeight = newHeight
+                            isScrollable = contentHeight > scrollViewHeight
+                        }
+                    }
+                )
             }
         }
-        .frame(minHeight: 50, maxHeight: 250)
+        .background(Color(.textBackgroundColor).opacity(0.5))
+        .cornerRadius(8)
         .onAppear {
-            if prompt.isEmpty {
-                return
-            }
-            aiService.generateResponse(prompt: prompt)
+            updateHeight()
         }
         .onChange(of: aiService.response) { _ in
-            // 当响应变化时更新高度
             updateHeight()
+        }
+        // 添加按键事件监听
+        .onKeyPress(.escape) {
+            onEscape()
+            return .handled
         }
     }
     
+    // 更新高度
     private func updateHeight() {
-        // 估算内容高度 - 由滚动视图管理
-        let textLength = aiService.response?.count ?? 0
-        let estimatedHeight = min(200, max(50, CGFloat(textLength) / 4))
-        
-        // 仅当高度变化较大时通知外部
-        if abs(contentHeight - estimatedHeight) > 20 {
-            contentHeight = estimatedHeight
-            onHeightChange(contentHeight)
-        }
+        let height = min(max(contentHeight, minHeight), maxHeight)
+        onHeightChange(height)
     }
 } 

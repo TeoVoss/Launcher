@@ -43,7 +43,7 @@ struct ResultRowView: View {
                 )
                 .foregroundColor(Color.gray)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 4)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)

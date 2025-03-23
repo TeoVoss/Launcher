@@ -126,4 +126,29 @@ class SearchService: ObservableObject {
             self.isSearchingFiles = false
         }
     }
+    
+    // 添加分页搜索文件的方法
+    @MainActor
+    func searchMoreFiles(query: String, page: Int) async {
+        // 标记搜索开始
+        isSearchingFiles = true
+        
+        // 获取当前页范围
+        let pageSize = 10
+        let startIndex = page * pageSize
+        
+        // 复用现有的文件搜索功能
+        let newResults = await FileSearchService.searchFiles(query: query, startIndex: startIndex, limit: pageSize)
+        
+        // 将新结果添加到现有结果中
+        if !newResults.isEmpty {
+            let allResults = fileSearchResults + newResults
+            // 更新结果，避免重复
+            let uniqueResults = Array(Set(allResults))
+            fileSearchResults = uniqueResults.sorted(by: { $0.name < $1.name })
+        }
+        
+        // 标记搜索结束
+        isSearchingFiles = false
+    }
 } 

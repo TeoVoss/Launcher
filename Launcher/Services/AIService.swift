@@ -1,5 +1,12 @@
 import Foundation
 
+// String扩展
+extension String {
+    func trim() -> String {
+        return self.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 // 创建消息结构体，符合Equatable协议
 struct ChatMessage: Equatable, Identifiable {
     let id = UUID()
@@ -18,23 +25,46 @@ class AIService: ObservableObject {
     
     // 添加新属性以支持新视图
     @Published var isGenerating: Bool = false
-    @Published var response: String? = nil
+    @Published var response: String = ""
+    @Published var isLoading: Bool = false
     
     private var buffer = ""
     private var session: URLSession?
     private var dataTask: URLSessionDataTask?
     
     // 将settingsManager作为依赖注入
-    private let settingsManager: SettingsManager
+    private var settingsManager: SettingsManager?
+    private var endpoint: String = ""
+    private var apiKey: String = ""
+    private var model: String = ""
     
+    init() {
+        // 延迟初始化settingsManager
+        Task { @MainActor in
+            self.settingsManager = SettingsManager()
+            self.updateSettings()
+        }
+    }
+    
+    @MainActor
     init(settingsManager: SettingsManager) {
         self.settingsManager = settingsManager
+        self.updateSettings()
+    }
+    
+    @MainActor
+    private func updateSettings() {
+        if let manager = settingsManager {
+            self.endpoint = manager.aiSettings.endpoint
+            self.apiKey = manager.aiSettings.apiKey
+            self.model = manager.aiSettings.model
+        }
     }
     
     // 添加简化的生成响应方法
     func generateResponse(prompt: String) {
         isGenerating = true
-        response = nil
+        response = ""
         
         // 启动异步任务
         Task {
@@ -60,27 +90,31 @@ class AIService: ObservableObject {
     func streamChat(prompt: String) async {
         isStreaming = true
         isGenerating = true
+        isLoading = true
         buffer = ""
         responseContent = ""
+        response = ""
         
         // 直接添加消息，而不是在异步队列中添加
         conversationHistory.append(ChatMessage(role: "user", content: prompt))
         conversationHistory.append(ChatMessage(role: "assistant", content: ""))
         activeResponseIndex = conversationHistory.count - 1
         
-        // 从设置中获取endpoint、apiKey和model
-        let endpoint = settingsManager.aiSettings.endpoint
-        let apiKey = settingsManager.aiSettings.apiKey
-        let model = settingsManager.aiSettings.model
+        // 使用本地缓存的设置值
+        let currentEndpoint = self.endpoint
+        let currentApiKey = self.apiKey
+        let currentModel = self.model
         
-        guard let url = URL(string: endpoint) else {
+        guard let url = URL(string: currentEndpoint) else {
+            let errorMessage = "错误：无效的 URL"
             if let index = activeResponseIndex {
-                conversationHistory[index].content = "错误：无效的 URL"
-                responseContent = "错误：无效的 URL"
-                response = "错误：无效的 URL"
+                conversationHistory[index].content = errorMessage
+                responseContent = errorMessage
+                response = errorMessage
             }
             isStreaming = false
             isGenerating = false
+            isLoading = false
             activeResponseIndex = nil
             return
         }
@@ -107,7 +141,7 @@ class AIService: ObservableObject {
         }
         
         let requestBody: [String: Any] = [
-            "model": model,
+            "model": currentModel,
             "messages": messages,
             "stream": true,
             "enable_search": true
@@ -115,7 +149,7 @@ class AIService: ObservableObject {
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(currentApiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         do {
@@ -128,6 +162,7 @@ class AIService: ObservableObject {
             }
             isStreaming = false
             isGenerating = false
+            isLoading = false
             activeResponseIndex = nil
             return
         }
@@ -168,6 +203,7 @@ class AIService: ObservableObject {
                     guard let self = self else { return }
                     self.isStreaming = false
                     self.isGenerating = false
+                    self.isLoading = false
                     self.activeResponseIndex = nil
                     self.buffer = ""
                 }
@@ -187,6 +223,7 @@ class AIService: ObservableObject {
                     
                     self.isStreaming = false
                     self.isGenerating = false
+                    self.isLoading = false
                     self.activeResponseIndex = nil
                 }
             }
@@ -201,9 +238,57 @@ class AIService: ObservableObject {
         conversationHistory = []
         currentResponse = ""
         responseContent = ""
-        response = nil
+        response = ""
         activeResponseIndex = nil
         isGenerating = false
+    }
+    
+    // 添加发送查询的方法
+    func sendQuery(_ prompt: String) async throws {
+        // 如果是空查询，则直接返回
+        if prompt.trim().isEmpty {
+            isGenerating = false
+            isStreaming = false
+            return
+        }
+        
+        // 设置状态
+        isGenerating = true
+        isStreaming = true
+        response = ""
+        currentResponse = ""
+        responseContent = ""
+        buffer = ""
+        
+        // 添加用户消息到历史记录
+        let userMessage = ChatMessage(role: "user", content: prompt)
+        conversationHistory.append(userMessage)
+        
+        // 添加临时的助手响应占位符
+        let assistantMessage = ChatMessage(role: "assistant", content: "")
+        conversationHistory.append(assistantMessage)
+        activeResponseIndex = conversationHistory.count - 1
+        
+        // 执行流式响应
+        await streamChat(prompt: prompt)
+    }
+    
+    // 取消所有请求
+    func cancelRequests() {
+        cancelStream()
+        isLoading = false
+        isGenerating = false
+    }
+    
+    // 新的发送请求方法，支持SpotlightView
+    func sendRequest(prompt: String) async {
+        guard !prompt.isEmpty else { return }
+        
+        isLoading = true
+        isGenerating = true
+        response = ""
+        
+        await streamChat(prompt: prompt)
     }
 }
 
