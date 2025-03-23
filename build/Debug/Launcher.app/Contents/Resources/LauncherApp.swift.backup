@@ -103,19 +103,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             // 设置为辅助应用模式
             NSApp.setActivationPolicy(.accessory)
-            
-            // 监听隐藏窗口通知
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(hideWindowNotification),
-                name: Notification.Name("HideWindowNotification"),
-                object: nil
-            )
         }
-    }
-    
-    @objc private func hideWindowNotification() {
-        hideWindow()
     }
     
     private func setupStatusBar() {
@@ -188,7 +176,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // 创建窗口
         let window = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 680, height: 60),
+            contentRect: NSRect(x: 0, y: 0, width: 680, height: 44),
             styleMask: [.borderless, .fullSizeContentView, .titled, .nonactivatingPanel, .resizable],
             backing: .buffered,
             defer: false
@@ -212,7 +200,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.closeButton)?.isHidden = true
         
-        // 使用新的SpotlightView
+        // 设置内容视图
         let spotlightView = SpotlightView(aiService: aiService)
         self.spotlightView = spotlightView
         window.contentView = NSHostingView(
@@ -243,11 +231,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 重置搜索状态
         spotlightView.resetSearch()
         
-        // 重置窗口大小并隐藏 - 使用协调器统一处理
+        // 重置窗口大小并隐藏
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.25
+            context.duration = 0.2
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            window.animator().setContentSize(NSSize(width: 680, height: 60))
+            window.animator().setContentSize(NSSize(width: 680, height: 44))
         } completionHandler: {
             self.window?.orderOut(nil)
         }
@@ -278,8 +266,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 window.setFrameOrigin(NSPoint(x: x, y: y))
             }
             
-            // 显示窗口并设置焦点 - 使用初始高度
-            window.setContentSize(NSSize(width: 680, height: 60))
+            // 显示窗口并设置焦点
+            window.setContentSize(NSSize(width: 680, height: 44))
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             
@@ -287,6 +275,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 guard let self = self, let spotlightView = self.spotlightView else { return }
                 spotlightView.requestFocus()
+                
+                // 如果有保存的搜索文本，确保重新执行搜索
+                if let lastSearchText = UserDefaults.standard.string(forKey: "LastSearchText"), !lastSearchText.isEmpty {
+                    spotlightView.refreshSearch()
+                }
             }
         }
     }

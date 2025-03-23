@@ -85,4 +85,19 @@ class SearchService: ObservableObject {
             self?.fileSearchResults = []
         }
     }
+    
+    // 清空所有类型的搜索结果 - 用于彻底重置搜索状态
+    func clearAllResults() {
+        // 清空结果管理器中的所有结果
+        searchResultManager.clearResults()
+        searchResultManager.clearFileResults()
+        
+        // 确保UI状态同步更新
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.searchResults = []
+            self.fileSearchResults = []
+            self.categories = []
+        }
+    }
 } 

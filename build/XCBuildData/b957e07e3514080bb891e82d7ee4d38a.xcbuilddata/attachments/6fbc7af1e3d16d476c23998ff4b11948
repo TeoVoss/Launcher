@@ -1,0 +1,228 @@
+{
+  "" : {
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/Launcher-master.dia",
+    "emit-module-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/Launcher-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/Launcher-master-emit-module.dia",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/Launcher-master.swiftdeps"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/LauncherApp.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherApp.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherApp.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherApp.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherApp.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherApp.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherApp.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherApp.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherApp~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Models/AISettings.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AISettings.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AISettings.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AISettings.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AISettings.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AISettings.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AISettings.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AISettings.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AISettings~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Models/SearchResult.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResult.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResult.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResult.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResult.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResult.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResult.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResult.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResult~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Services/AIService.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIService.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIService.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIService.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIService.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIService.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIService.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIService.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIService~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Services/ApplicationSearchService.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ApplicationSearchService.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ApplicationSearchService.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ApplicationSearchService.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ApplicationSearchService.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ApplicationSearchService.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ApplicationSearchService.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ApplicationSearchService.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ApplicationSearchService~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Services/BaseSearchService.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/BaseSearchService.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/BaseSearchService.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/BaseSearchService.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/BaseSearchService.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/BaseSearchService.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/BaseSearchService.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/BaseSearchService.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/BaseSearchService~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Services/FileSearchService.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchService.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchService.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchService.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchService.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchService.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchService.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchService.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchService~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Services/SearchResultManager.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResultManager.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResultManager.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResultManager.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResultManager.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResultManager.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResultManager.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResultManager.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchResultManager~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Services/SearchService.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchService.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchService.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchService.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchService.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchService.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchService.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchService.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchService~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Services/ShortcutSearchService.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ShortcutSearchService.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ShortcutSearchService.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ShortcutSearchService.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ShortcutSearchService.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ShortcutSearchService.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ShortcutSearchService.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ShortcutSearchService.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ShortcutSearchService~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Utils/KeyboardHandler.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/KeyboardHandler.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/KeyboardHandler.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/KeyboardHandler.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/KeyboardHandler.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/KeyboardHandler.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/KeyboardHandler.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/KeyboardHandler.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/KeyboardHandler~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Utils/LauncherSize.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherSize.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherSize.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherSize.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherSize.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherSize.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherSize.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherSize.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/LauncherSize~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Utils/WindowCoordinator.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/WindowCoordinator.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/WindowCoordinator.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/WindowCoordinator.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/WindowCoordinator.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/WindowCoordinator.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/WindowCoordinator.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/WindowCoordinator.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/WindowCoordinator~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/ViewModels/SpotlightViewModel.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightViewModel.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightViewModel.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightViewModel.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightViewModel.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightViewModel.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightViewModel.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightViewModel.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightViewModel~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Views/AIResponseView.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIResponseView.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIResponseView.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIResponseView.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIResponseView.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIResponseView.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIResponseView.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIResponseView.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/AIResponseView~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Views/FileSearchView.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchView.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchView.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchView.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchView.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchView.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchView.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchView.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/FileSearchView~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Views/ResultList/ResultListView.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultListView.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultListView.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultListView.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultListView.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultListView.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultListView.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultListView.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultListView~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Views/ResultList/ResultRowView.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultRowView.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultRowView.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultRowView.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultRowView.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultRowView.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultRowView.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultRowView.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/ResultRowView~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Views/SearchBar/SearchBarView.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchBarView.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchBarView.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchBarView.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchBarView.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchBarView.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchBarView.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchBarView.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SearchBarView~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Views/SettingsView.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SettingsView.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SettingsView.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SettingsView.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SettingsView.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SettingsView.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SettingsView.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SettingsView.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SettingsView~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/Launcher/Views/SpotlightView.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightView.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightView.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightView.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightView.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightView.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightView.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightView.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/SpotlightView~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Documents/workspace/exercises/Launcher/build/Launcher.build/Debug/Launcher.build/Objects-normal/x86_64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}

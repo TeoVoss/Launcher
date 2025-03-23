@@ -1,0 +1,68 @@
+{
+  "" : {
+    "diagnostics" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey-master.dia",
+    "emit-module-dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey-master-emit-module.dia",
+    "swift-dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey-master.swiftdeps"
+  },
+  "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/Sources/HotKey/HotKey.swift" : {
+    "const-values" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey.d",
+    "diagnostics" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey.dia",
+    "index-unit-output-path" : "/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey.o",
+    "llvm-bc" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey.bc",
+    "object" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey.o",
+    "swift-dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKey~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/Sources/HotKey/HotKeysController.swift" : {
+    "const-values" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKeysController.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKeysController.d",
+    "diagnostics" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKeysController.dia",
+    "index-unit-output-path" : "/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKeysController.o",
+    "llvm-bc" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKeysController.bc",
+    "object" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKeysController.o",
+    "swift-dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKeysController.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/HotKeysController~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/Sources/HotKey/Key.swift" : {
+    "const-values" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/Key.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/Key.d",
+    "diagnostics" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/Key.dia",
+    "index-unit-output-path" : "/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/Key.o",
+    "llvm-bc" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/Key.bc",
+    "object" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/Key.o",
+    "swift-dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/Key.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/Key~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/Sources/HotKey/KeyCombo+System.swift" : {
+    "const-values" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo+System.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo+System.d",
+    "diagnostics" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo+System.dia",
+    "index-unit-output-path" : "/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo+System.o",
+    "llvm-bc" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo+System.bc",
+    "object" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo+System.o",
+    "swift-dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo+System.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo+System~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/Sources/HotKey/KeyCombo.swift" : {
+    "const-values" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo.d",
+    "diagnostics" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo.dia",
+    "index-unit-output-path" : "/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo.o",
+    "llvm-bc" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo.bc",
+    "object" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo.o",
+    "swift-dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/KeyCombo~partial.swiftmodule"
+  },
+  "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/Sources/HotKey/NSEventModifierFlags+HotKey.swift" : {
+    "const-values" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/NSEventModifierFlags+HotKey.swiftconstvalues",
+    "dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/NSEventModifierFlags+HotKey.d",
+    "diagnostics" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/NSEventModifierFlags+HotKey.dia",
+    "index-unit-output-path" : "/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/NSEventModifierFlags+HotKey.o",
+    "llvm-bc" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/NSEventModifierFlags+HotKey.bc",
+    "object" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/NSEventModifierFlags+HotKey.o",
+    "swift-dependencies" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/NSEventModifierFlags+HotKey.swiftdeps",
+    "swiftmodule" : "/Users/zhoucong/Library/Developer/Xcode/DerivedData/Launcher-dhbyvkrdxvyuftbgkgqpxzvceals/SourcePackages/checkouts/HotKey/build/HotKey.build/Debug/HotKey.build/Objects-normal/x86_64/NSEventModifierFlags+HotKey~partial.swiftmodule"
+  }
+}
