@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Foundation
 
 // 删除无搜索结果视图，使用简单的空白状态
 // 删除NoResultsView结构体
@@ -7,7 +8,7 @@ import AppKit
 struct SpotlightView: View {
     @StateObject private var viewModel: SpotlightViewModel
     @Environment(\.scenePhase) var scenePhase
-    @ObservedObject private var heightManager = HeightManager.shared
+    private let debouncer = Debouncer(delay: 0.3)
     
     init(aiService: AIService) {
         let searchService = SearchService()
@@ -20,7 +21,6 @@ struct SpotlightView: View {
     }
     
     var body: some View {
-        // 关键点：固定外层ID标识
         VStack(spacing: 0) {
             // 搜索栏
             SearchBarView(
@@ -29,95 +29,190 @@ struct SpotlightView: View {
                     viewModel.resetSearch()
                 }
             )
-            .frame(height: 60)  // 明确总高度为60像素（包含内边距）
-            .reportSize(name: "SearchBarView")
+            .frame(height: 60)
             
-            // 内容区域 - 创建稳定容器，防止重新创建
-            ZStack {
-                // 1. 外层容器始终存在，不会被移除
-                Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
-                
-                // 2. 显示AI响应
-                if viewModel.showingAIResponse {
-                    AIResponseView(
-                        aiService: viewModel.aiService, 
-                        prompt: viewModel.prompt, 
-                        onEscape: {
-                            viewModel.exitCurrentMode()
-                        },
-                        onHeightChange: { newHeight in
-                            // 修改：使用HeightManager更新高度
-                            heightManager.updateContentHeight(newHeight, source: "AIResponseView")
+            // 统一的滚动视图容器
+            ScrollView {
+                VStack(spacing: 8) {
+                    // 1. AI对话视图区域 - 可折叠/展开
+                    if viewModel.shouldShowAIOption && !viewModel.searchText.isEmpty {
+                        VStack(spacing: 0) {
+                            // AI对话折叠标题栏
+                            Button(action: {
+                                viewModel.toggleAIResponse()
+                            }) {
+                                HStack {
+                                    Image(systemName: "brain.fill")
+                                        .foregroundColor(.secondary)
+                                    Text("AI 助手")
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Image(systemName: viewModel.aiResponseExpanded ? "chevron.up" : "chevron.down")
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 12)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .background(Color(nsColor: .controlBackgroundColor).opacity(0.7))
+                            .cornerRadius(8)
+                            
+                            // AI响应内容 - 当展开时显示
+                            if viewModel.aiResponseExpanded {
+                                AIResponseView(
+                                    aiService: viewModel.aiService, 
+                                    prompt: viewModel.prompt, 
+                                    onEscape: {
+                                        viewModel.toggleAIResponse()
+                                    },
+                                    onHeightChange: { _ in }
+                                )
+                                .padding(.horizontal, 4)
+                                .padding(.top, 4)
+                                .transition(.opacity)
+                                .background(Color(nsColor: .controlBackgroundColor).opacity(0.7))
+                                .cornerRadius(8)
+                            }
                         }
-                    )
-                    .transition(.opacity)
-                    // 关键点：使用固定ID
-                    .id("AIResponseView")
-                    .reportSize(name: "AIResponseView")
-                }
-                
-                // 3. 显示文件搜索
-                if viewModel.showingFileSearch {
-                    FileSearchView(
-                        searchService: viewModel.searchService,
-                        searchText: $viewModel.searchText,
-                        selectedIndex: $viewModel.selectedIndex,
-                        onResultSelected: { result in
-                            viewModel.searchService.executeResult(result)
-                        },
-                        onResultsChanged: {
-                            // 不再主动调整高度，依靠观察者模式
+                        .padding(.horizontal, 8)
+                    }
+                    
+                    // 2. 应用程序搜索结果 - 始终显示，没有结果时为空
+                    if !viewModel.displayResults.isEmpty {
+                        VStack(spacing: 0) {
+                            HStack {
+                                Text("应用和工具")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                            }
+                            .padding([.horizontal, .top], 10)
+                            
+                            // 应用结果列表
+                            VStack(spacing: 0) {
+                                ForEach(Array(viewModel.displayResults.enumerated()), id: \.element.id) { index, result in
+                                    ResultRowView(
+                                        result: result,
+                                        isSelected: viewModel.selectedIndex == index
+                                    )
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        viewModel.selectedIndex = index
+                                        viewModel.handleItemClick(result)
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 4)
                         }
-                    )
-                    .transition(.opacity)
-                    // 关键点：使用固定ID
-                    .id("FileSearchView")
-                    .reportSize(name: "FileSearchView")
-                }
-                
-                // 4. 显示搜索结果 - 关键点：始终存在，仅通过条件隐藏，而不是移除重建
-                ResultListView(
-                    results: viewModel.displayResults,
-                    selectedIndex: $viewModel.selectedIndex,
-                    onItemClick: { result in
-                        viewModel.handleItemClick(result)
+                        .background(Color(nsColor: .controlBackgroundColor).opacity(0.7))
+                        .cornerRadius(8)
+                        .padding(.horizontal, 8)
                     }
-                )
-                // 关键点：通过opacity控制显示隐藏，而不是条件渲染
-                .opacity((!viewModel.searchText.isEmpty && !viewModel.displayResults.isEmpty && 
-                         !viewModel.showingAIResponse && !viewModel.showingFileSearch) ? 1 : 0)
-                .allowsHitTesting((!viewModel.searchText.isEmpty && !viewModel.displayResults.isEmpty && 
-                                  !viewModel.showingAIResponse && !viewModel.showingFileSearch))
-                .reportSize(name: "ResultListView")
-                .contentHeightReader { height in
-                    // 只在显示时才更新高度
-                    if height > 0 && !viewModel.showingAIResponse && !viewModel.showingFileSearch && 
-                       !viewModel.displayResults.isEmpty {
-                        // 修改：使用HeightManager更新高度
-                        heightManager.updateContentHeight(height, source: "ResultListView")
+                    
+                    // 3. 文件搜索视图 - 可折叠/展开
+                    if !viewModel.searchText.isEmpty {
+                        VStack(spacing: 0) {
+                            // 文件搜索折叠标题栏
+                            Button(action: {
+                                viewModel.toggleFileSearch()
+                            }) {
+                                HStack {
+                                    Image(systemName: "folder.fill")
+                                        .foregroundColor(.secondary)
+                                    Text("文件搜索")
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Image(systemName: viewModel.fileSearchExpanded ? "chevron.up" : "chevron.down")
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 12)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .background(Color(nsColor: .controlBackgroundColor).opacity(0.7))
+                            .cornerRadius(8)
+                            
+                            // 文件搜索内容 - 当展开时显示
+                            if viewModel.fileSearchExpanded {
+                                FileSearchView(
+                                    searchService: viewModel.searchService,
+                                    searchText: $viewModel.searchText,
+                                    selectedIndex: $viewModel.selectedFileIndex,
+                                    onResultSelected: { result in
+                                        viewModel.searchService.executeResult(result)
+                                    },
+                                    onResultsChanged: {}
+                                )
+                                .padding(.horizontal, 4)
+                                .padding(.top, 4)
+                                .transition(.opacity)
+                                .background(Color(nsColor: .controlBackgroundColor).opacity(0.7))
+                                .cornerRadius(8)
+                            }
+                        }
+                        .padding(.horizontal, 8)
                     }
                 }
+                .padding(.vertical, 8)
             }
-            .padding(.top, 0) // 确保内容区域顶部无间距
-            .padding(.all, 0) // 确保四边都没有间距
+            .frame(maxHeight: 600)
         }
-        // 固定整个视图树的ID
-        .id("MainSpotlightView")
-        // 修改：使用HeightManager的高度
-        .frame(width: 680, height: heightManager.currentHeight)
+        .frame(width: 680, height: min(700, 60 + calculateContentHeight()))
         .background(Color(nsColor: .windowBackgroundColor))
         .cornerRadius(8)
         .onAppear {
             setupKeyboardHandling()
         }
-        .onChange(of: scenePhase) { newPhase in
-            if newPhase == .active {
+        .onChange(of: viewModel.searchText, perform: { value in
+            updateHeight()
+            // 自动触发搜索
+            debouncer.debounce {
+                viewModel.updateSearchResults(for: value)
+            }
+        })
+        .onChange(of: viewModel.aiResponseExpanded, perform: { value in
+            updateHeight()
+        })
+        .onChange(of: viewModel.fileSearchExpanded, perform: { value in
+            updateHeight()
+        })
+        .onChange(of: scenePhase, perform: { value in
+            if value == .active {
                 viewModel.requestFocus()
             }
+        })
+    }
+    
+    // 计算内容总高度的方法
+    private func calculateContentHeight() -> CGFloat {
+        var totalHeight: CGFloat = 0
+        
+        // 基础内边距
+        totalHeight += 16 // 顶部和底部各8点
+        
+        // AI视图高度
+        if viewModel.aiResponseExpanded {
+            totalHeight += 250 // AI展开时的预估高度
+        } else if viewModel.shouldShowAIOption && !viewModel.searchText.isEmpty {
+            totalHeight += 40 // AI折叠标题栏高度
         }
-        // 添加调试信息面板
-        .debugInfo(heightManager.debugInfo)
-        .reportSize(name: "SpotlightView")
+        
+        // 应用程序结果高度
+        if !viewModel.displayResults.isEmpty {
+            let itemsHeight = CGFloat(viewModel.displayResults.count) * 48 // 每项高度48
+            totalHeight += min(itemsHeight + 40, 300) // 标题栏高度 + 内容高度，不超过300
+        }
+        
+        // 文件搜索视图高度
+        if viewModel.fileSearchExpanded {
+            totalHeight += 200 // 文件搜索展开时的预估高度
+        } else if !viewModel.searchText.isEmpty {
+            totalHeight += 40 // 文件搜索折叠标题栏高度
+        }
+        
+        return totalHeight
     }
     
     private func setupKeyboardHandling() {
@@ -125,8 +220,10 @@ struct SpotlightView: View {
             let handled = KeyboardHandler.handleKeyDown(
                 event: event,
                 onEscape: {
-                    if viewModel.showingAIResponse || viewModel.showingFileSearch {
-                        viewModel.exitCurrentMode()
+                    if viewModel.aiResponseExpanded {
+                        viewModel.toggleAIResponse()
+                    } else if viewModel.fileSearchExpanded {
+                        viewModel.toggleFileSearch()
                     } else if !viewModel.searchText.isEmpty {
                         viewModel.resetSearch()
                     } else {
@@ -138,26 +235,63 @@ struct SpotlightView: View {
                     viewModel.handleSubmit()
                 },
                 onArrowUp: {
-                    if viewModel.displayResults.isEmpty { return }
-                    
-                    if let currentIndex = viewModel.selectedIndex {
-                        viewModel.selectedIndex = max(currentIndex - 1, 0)
-                    } else {
-                        viewModel.selectedIndex = 0
-                    }
+                    handleArrowUp()
                 },
                 onArrowDown: {
-                    if viewModel.displayResults.isEmpty { return }
-                    
-                    if let currentIndex = viewModel.selectedIndex {
-                        viewModel.selectedIndex = min(currentIndex + 1, viewModel.displayResults.count - 1)
-                    } else {
-                        viewModel.selectedIndex = 0
-                    }
+                    handleArrowDown()
                 }
             )
             
             return handled ? nil : event
+        }
+    }
+    
+    // 处理向上箭头键 - 统一管理所有视图的选择
+    private func handleArrowUp() {
+        if viewModel.fileSearchExpanded {
+            // 文件搜索视图中的向上导航
+            if let currentIndex = viewModel.selectedFileIndex {
+                viewModel.selectedFileIndex = max(currentIndex - 1, 0)
+            } else if !viewModel.searchService.fileSearchResults.isEmpty {
+                viewModel.selectedFileIndex = 0
+            }
+        } else if viewModel.aiResponseExpanded {
+            // AI响应视图中的向上导航 - 目前不需要特殊处理
+        } else {
+            // 主搜索结果列表中的向上导航
+            if viewModel.displayResults.isEmpty { return }
+            
+            if let currentIndex = viewModel.selectedIndex {
+                viewModel.selectedIndex = max(currentIndex - 1, 0)
+            } else {
+                viewModel.selectedIndex = 0
+            }
+        }
+    }
+    
+    // 处理向下箭头键 - 统一管理所有视图的选择
+    private func handleArrowDown() {
+        if viewModel.fileSearchExpanded {
+            // 文件搜索视图中的向下导航
+            let fileResults = viewModel.searchService.fileSearchResults
+            if fileResults.isEmpty { return }
+            
+            if let currentIndex = viewModel.selectedFileIndex {
+                viewModel.selectedFileIndex = min(currentIndex + 1, fileResults.count - 1)
+            } else {
+                viewModel.selectedFileIndex = 0
+            }
+        } else if viewModel.aiResponseExpanded {
+            // AI响应视图中的向下导航 - 目前不需要特殊处理
+        } else {
+            // 主搜索结果列表中的向下导航
+            if viewModel.displayResults.isEmpty { return }
+            
+            if let currentIndex = viewModel.selectedIndex {
+                viewModel.selectedIndex = min(currentIndex + 1, viewModel.displayResults.count - 1)
+            } else {
+                viewModel.selectedIndex = 0
+            }
         }
     }
     
@@ -167,6 +301,12 @@ struct SpotlightView: View {
     
     func resetSearch() {
         viewModel.resetSearch()
+    }
+    
+    private func updateHeight() {
+        // 触发高度计算和更新
+        let newHeight = calculateContentHeight()
+        WindowCoordinator.shared.updateWindowHeight(to: 60 + newHeight, animated: true)
     }
 }
 

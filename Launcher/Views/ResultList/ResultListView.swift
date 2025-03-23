@@ -8,6 +8,9 @@ struct ResultListView: View {
     @Binding var selectedIndex: Int?
     var onItemClick: (SearchResult) -> Void
     
+    // 添加自动选择第一个结果的属性
+    var autoSelectFirstResult: Bool = true
+    
     // 监控内部状态
     @State private var lastResultCount: Int = 0
     @State private var didSetupInitial: Bool = false
@@ -73,37 +76,49 @@ struct ResultListView: View {
                     }
                 }
             }
+            .onDisappear {
+                lastResultCount = 0
+            }
             // 结果数量变化时的处理 - 使用更精确的判断条件
-            .onChange(of: results.count) { newCount in
+            .onChange(of: results.count, perform: { newCount in
                 // 结果数量变化才执行滚动
                 if newCount != lastResultCount {
-                    // 更新结果数量缓存
                     lastResultCount = newCount
                     
-                    // 滚动到顶部 - 延迟执行确保布局完成
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        withAnimation(nil) {
-                            proxy.scrollTo("top", anchor: .top)
+                    if newCount > 0 {
+                        // 设置自动选中第一个
+                        if autoSelectFirstResult && selectedIndex == nil {
+                            selectedIndex = 0
                         }
                         
-                        // 重新设置选中项
-                        if newCount > 0 && (selectedIndex == nil || selectedIndex! >= newCount) {
-                            selectedIndex = 0
-                        } else if newCount == 0 {
-                            selectedIndex = nil
+                        // 只有在结果数量变化时才需要滚动
+                        withAnimation {
+                            if let selectedIndex, selectedIndex < newCount {
+                                // 滚动到选中的项目
+                                proxy.scrollTo("result-\(selectedIndex)", anchor: .center)
+                            } else {
+                                // 无选中项时滚动到开头
+                                proxy.scrollTo("resultListTop", anchor: .top)
+                            }
                         }
                     }
+                    
+                    // 更新高度管理器
+                    heightManager.updateContentHeight(
+                        calculateContentHeight(),
+                        source: "ResultList[\(results.count)]"
+                    )
                 }
-            }
+            })
             // 监听选中项变化 - 添加条件判断防止无效滚动
-            .onChange(of: selectedIndex) { newIndex in
+            .onChange(of: selectedIndex, perform: { newIndex in
                 if let index = newIndex, index >= 0, index < results.count {
                     // 使用轻微动画滚动到选中项
                     withAnimation(.easeOut(duration: 0.2)) {
                         proxy.scrollTo(index, anchor: .center)
                     }
                 }
-            }
+            })
         }
         // 添加稳定ID，确保视图不会被重建
         .id(Self.stableViewId)
@@ -114,5 +129,12 @@ struct ResultListView: View {
                 print("结果列表尺寸变化: \(size)")
             }
         }
+    }
+    
+    // 计算内容高度的方法
+    private func calculateContentHeight() -> CGFloat {
+        // 基于结果数量计算高度
+        let count = results.count
+        return LauncherSize.calculateHeightForItems(count)
     }
 } 

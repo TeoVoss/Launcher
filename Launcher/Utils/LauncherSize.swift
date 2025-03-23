@@ -1,6 +1,10 @@
 import SwiftUI
 import Combine
 
+// 引入ViewMode枚举
+@_exported import struct Foundation.Date
+@_exported import struct Foundation.UUID
+
 /// 集中管理启动器大小计算的工具类
 struct LauncherSize {
     /// 固定尺寸常量
@@ -59,6 +63,10 @@ struct LauncherSize {
         case .aiResponse:
             // AI响应模式 - 使用预设的最小高度
             return Fixed.searchBarHeight + Fixed.minAIContentHeight
+            
+        case .mixed:
+            // 混合模式 - 使用较大的高度
+            return Fixed.searchBarHeight + max(Fixed.minAIContentHeight, Fixed.minFileSearchHeight)
         }
     }
     
@@ -95,6 +103,9 @@ struct LauncherSize {
         case .aiResponse:
             minContentHeight = Fixed.minAIContentHeight
             maxContentHeight = 500
+        case .mixed:
+            minContentHeight = Fixed.minContentHeight
+            maxContentHeight = 600
         }
         
         // 限制内容高度在合理范围内
@@ -133,6 +144,15 @@ class HeightManager: ObservableObject {
     @Published var contentHeight: CGFloat = 0
     @Published var currentMode: ViewMode = .search
     
+    // 各视图高度状态
+    @Published var aiResponseHeight: CGFloat = 0
+    @Published var fileSearchHeight: CGFloat = 0
+    @Published var searchResultsHeight: CGFloat = 0
+    
+    // 视图展开状态
+    @Published var isAIResponseExpanded: Bool = false
+    @Published var isFileSearchExpanded: Bool = false
+    
     // 调试状态
     @Published var lastUpdateSource: String = ""
     @Published var debugMode: Bool = false
@@ -149,6 +169,15 @@ class HeightManager: ObservableObject {
     func updateContentHeight(_ newHeight: CGFloat, source: String) {
         // 记录更新来源，用于调试
         self.lastUpdateSource = source
+        
+        // 根据来源更新对应视图的高度
+        if source.contains("AIResponse") {
+            self.aiResponseHeight = newHeight
+        } else if source.contains("FileSearch") {
+            self.fileSearchHeight = newHeight
+        } else if source.contains("ResultList") {
+            self.searchResultsHeight = newHeight
+        }
         
         // 检查是否是有意义的变化
         guard abs(self.contentHeight - newHeight) > 1.0 else {
@@ -169,22 +198,82 @@ class HeightManager: ObservableObject {
             // 标记更新开始
             isUpdating = true
             
-            // 限制高度在合理范围内
-            let newTotalHeight = calculateHeightForMode(self.currentMode, contentHeight: newHeight)
+            // 计算总高度 - 根据当前模式和展开状态
+            var totalContentHeight: CGFloat = 0
+            
+            // 计算AI响应部分高度
+            if isAIResponseExpanded {
+                totalContentHeight += aiResponseHeight
+            }
+            
+            // 计算搜索结果部分高度
+            if currentMode == .search || currentMode == .mixed {
+                totalContentHeight += searchResultsHeight
+            }
+            
+            // 计算文件搜索部分高度
+            if isFileSearchExpanded {
+                totalContentHeight += fileSearchHeight
+            }
+            
+            // 限制总内容高度
+            totalContentHeight = min(totalContentHeight, 600)
             
             // 更新状态
-            self.contentHeight = newHeight
-            self.currentHeight = newTotalHeight
+            self.contentHeight = totalContentHeight
+            self.currentHeight = LauncherSize.Fixed.searchBarHeight + totalContentHeight
             
             // 应用窗口高度变化
-            WindowCoordinator.shared.updateWindowHeight(to: newTotalHeight, animated: true)
+            WindowCoordinator.shared.updateWindowHeight(to: self.currentHeight, animated: true)
             
             // 延迟一段时间后重置更新状态
             try? await Task.sleep(nanoseconds: 200_000_000) // 200毫秒
             isUpdating = false
             
-            print("【高度管理】高度更新完成: \(newTotalHeight), 来源: \(source)")
+            print("【高度管理】高度更新完成: \(self.currentHeight), 来源: \(source)")
         }
+    }
+    
+    /// 切换AI响应视图展开状态
+    func toggleAIResponseExpanded(_ expanded: Bool) {
+        self.isAIResponseExpanded = expanded
+        updateAfterStateChange()
+    }
+    
+    /// 切换文件搜索视图展开状态
+    func toggleFileSearchExpanded(_ expanded: Bool) {
+        self.isFileSearchExpanded = expanded
+        updateAfterStateChange()
+    }
+    
+    /// 在状态变化后更新总高度
+    private func updateAfterStateChange() {
+        var totalContentHeight: CGFloat = 0
+        
+        // 计算AI响应部分高度
+        if isAIResponseExpanded {
+            totalContentHeight += max(aiResponseHeight, LauncherSize.Fixed.minAIContentHeight)
+        }
+        
+        // 计算搜索结果部分高度
+        if currentMode == .search || currentMode == .mixed {
+            totalContentHeight += searchResultsHeight
+        }
+        
+        // 计算文件搜索部分高度
+        if isFileSearchExpanded {
+            totalContentHeight += max(fileSearchHeight, LauncherSize.Fixed.minFileSearchHeight)
+        }
+        
+        // 限制总内容高度
+        totalContentHeight = min(totalContentHeight, 600)
+        
+        // 更新状态
+        self.contentHeight = totalContentHeight
+        self.currentHeight = LauncherSize.Fixed.searchBarHeight + totalContentHeight
+        
+        // 应用窗口高度变化
+        WindowCoordinator.shared.updateWindowHeight(to: self.currentHeight, animated: true)
     }
     
     /// 切换视图模式
@@ -193,28 +282,24 @@ class HeightManager: ObservableObject {
         let oldMode = self.currentMode
         self.currentMode = mode
         
-        // 根据模式计算初始高度
-        let newContentHeight: CGFloat
-        if let height = initialContentHeight {
-            newContentHeight = height
-        } else {
-            switch mode {
-            case .search:
-                newContentHeight = 0
-            case .fileSearch:
-                newContentHeight = LauncherSize.Fixed.minFileSearchHeight
-            case .aiResponse:
-                newContentHeight = LauncherSize.Fixed.minAIContentHeight
-            }
+        // 根据模式设置展开状态
+        switch mode {
+        case .search:
+            isAIResponseExpanded = false
+            isFileSearchExpanded = false
+        case .fileSearch:
+            isAIResponseExpanded = false
+            isFileSearchExpanded = true
+        case .aiResponse:
+            isAIResponseExpanded = true
+            isFileSearchExpanded = false
+        case .mixed:
+            // 混合模式下保持当前展开状态
+            break
         }
         
         // 更新高度
-        self.contentHeight = newContentHeight
-        self.currentHeight = calculateHeightForMode(mode, contentHeight: newContentHeight)
-        
-        // 应用到窗口 - 根据模式变化决定是否使用动画
-        let shouldAnimate = !(oldMode == .search && mode != .search && newContentHeight > 200)
-        WindowCoordinator.shared.updateWindowHeight(to: self.currentHeight, animated: shouldAnimate)
+        updateAfterStateChange()
         
         print("【高度管理】模式切换: \(oldMode) -> \(mode), 新高度: \(self.currentHeight)")
     }
@@ -225,6 +310,11 @@ class HeightManager: ObservableObject {
         self.currentMode = .search
         self.contentHeight = 0
         self.currentHeight = LauncherSize.Fixed.searchBarHeight
+        self.aiResponseHeight = 0
+        self.fileSearchHeight = 0
+        self.searchResultsHeight = 0
+        self.isAIResponseExpanded = false
+        self.isFileSearchExpanded = false
         
         // 应用到窗口
         WindowCoordinator.shared.resetWindowHeight()
@@ -248,6 +338,9 @@ class HeightManager: ObservableObject {
         case .aiResponse:
             minHeight = LauncherSize.HeightLimits.aiResponseMin
             maxHeight = LauncherSize.HeightLimits.aiResponseMax
+        case .mixed:
+            minHeight = LauncherSize.HeightLimits.searchMin
+            maxHeight = LauncherSize.HeightLimits.aiResponseMax // 使用最大的限制
         }
         
         // 计算并限制在合理范围内
@@ -266,22 +359,23 @@ class HeightManager: ObservableObject {
         // 计算内容高度并更新
         let itemCount = results.count
         let newContentHeight = LauncherSize.calculateHeightForItems(itemCount)
-        self.contentHeight = newContentHeight
+        self.searchResultsHeight = newContentHeight
         
-        // 计算总高度
-        let totalHeight = calculateHeightForMode(.search, contentHeight: newContentHeight)
-        self.currentHeight = totalHeight
+        // 更新总高度
+        updateAfterStateChange()
         
-        return totalHeight
+        return self.currentHeight
     }
     
     /// 获取调试信息
     var debugInfo: String {
         return """
         模式: \(currentMode)
-        内容高度: \(Int(contentHeight))
+        AI高度: \(Int(aiResponseHeight)) (展开: \(isAIResponseExpanded))
+        文件高度: \(Int(fileSearchHeight)) (展开: \(isFileSearchExpanded))
+        结果高度: \(Int(searchResultsHeight))
         总高度: \(Int(currentHeight))
-        最后更新来源: \(lastUpdateSource)
+        来源: \(lastUpdateSource)
         """
     }
 } 

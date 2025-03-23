@@ -11,9 +11,14 @@ struct ChatMessage: Equatable, Identifiable {
 class AIService: ObservableObject {
     @Published var isStreaming = false
     @Published var currentResponse = ""
+    @Published var responseContent = ""
     // 使用结构体数组替代元组数组
     @Published var conversationHistory: [ChatMessage] = []
     @Published var activeResponseIndex: Int? = nil
+    
+    // 添加新属性以支持新视图
+    @Published var isGenerating: Bool = false
+    @Published var response: String? = nil
     
     private var buffer = ""
     private var session: URLSession?
@@ -26,6 +31,17 @@ class AIService: ObservableObject {
         self.settingsManager = settingsManager
     }
     
+    // 添加简化的生成响应方法
+    func generateResponse(prompt: String) {
+        isGenerating = true
+        response = nil
+        
+        // 启动异步任务
+        Task {
+            await streamChat(prompt: prompt)
+        }
+    }
+    
     func cancelStream() {
         dataTask?.cancel()
         dataTask = nil
@@ -35,6 +51,7 @@ class AIService: ObservableObject {
         // 修复警告：使用DispatchQueue避免在视图更新周期内直接修改@Published属性
         DispatchQueue.main.async {
             self.isStreaming = false
+            self.isGenerating = false
             self.buffer = ""
             self.activeResponseIndex = nil
         }
@@ -42,7 +59,9 @@ class AIService: ObservableObject {
     
     func streamChat(prompt: String) async {
         isStreaming = true
+        isGenerating = true
         buffer = ""
+        responseContent = ""
         
         // 直接添加消息，而不是在异步队列中添加
         conversationHistory.append(ChatMessage(role: "user", content: prompt))
@@ -57,8 +76,11 @@ class AIService: ObservableObject {
         guard let url = URL(string: endpoint) else {
             if let index = activeResponseIndex {
                 conversationHistory[index].content = "错误：无效的 URL"
+                responseContent = "错误：无效的 URL"
+                response = "错误：无效的 URL"
             }
             isStreaming = false
+            isGenerating = false
             activeResponseIndex = nil
             return
         }
@@ -101,8 +123,11 @@ class AIService: ObservableObject {
         } catch {
             if let index = activeResponseIndex {
                 conversationHistory[index].content = "错误：请求体序列化失败"
+                responseContent = "错误：请求体序列化失败"
+                response = "错误：请求体序列化失败"
             }
             isStreaming = false
+            isGenerating = false
             activeResponseIndex = nil
             return
         }
@@ -134,12 +159,15 @@ class AIService: ObservableObject {
                     }
                     
                     self.currentResponse = self.buffer
+                    self.responseContent = self.buffer
+                    self.response = self.buffer
                 }
             },
             completion: { [weak self] in
                 Task { @MainActor [weak self] in
                     guard let self = self else { return }
                     self.isStreaming = false
+                    self.isGenerating = false
                     self.activeResponseIndex = nil
                     self.buffer = ""
                 }
@@ -150,11 +178,15 @@ class AIService: ObservableObject {
                     
                     if (error as NSError).code != NSURLErrorCancelled {
                         if let index = self.activeResponseIndex {
-                            self.conversationHistory[index].content = "错误：\(error.localizedDescription)"
+                            let errorMessage = "错误：\(error.localizedDescription)"
+                            self.conversationHistory[index].content = errorMessage
+                            self.responseContent = errorMessage
+                            self.response = errorMessage
                         }
                     }
                     
                     self.isStreaming = false
+                    self.isGenerating = false
                     self.activeResponseIndex = nil
                 }
             }
@@ -168,7 +200,10 @@ class AIService: ObservableObject {
     func clearConversation() {
         conversationHistory = []
         currentResponse = ""
+        responseContent = ""
+        response = nil
         activeResponseIndex = nil
+        isGenerating = false
     }
 }
 

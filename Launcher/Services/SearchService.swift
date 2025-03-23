@@ -7,6 +7,7 @@ class SearchService: ObservableObject {
     @Published var searchResults: [SearchResult] = []
     @Published var categories: [SearchResultCategory] = []
     @Published var fileSearchResults: [SearchResult] = []
+    @Published var isSearchingFiles: Bool = false
     
     private let searchResultManager: SearchResultManager
     private var cancellables = Set<AnyCancellable>()
@@ -58,13 +59,24 @@ class SearchService: ObservableObject {
         if query.isEmpty {
             DispatchQueue.main.async { [weak self] in
                 self?.fileSearchResults = []
+                self?.isSearchingFiles = false
             }
             searchResultManager.clearFileResults()
             return
         }
         
+        // 设置搜索中状态
+        DispatchQueue.main.async { [weak self] in
+            self?.isSearchingFiles = true
+        }
+        
         // 专门执行文件搜索
         searchResultManager.searchFiles(query: query)
+        
+        // 搜索完成后更新状态
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.isSearchingFiles = false
+        }
     }
     
     // 保持与原有API兼容的打开结果方法
@@ -98,6 +110,20 @@ class SearchService: ObservableObject {
             self.searchResults = []
             self.fileSearchResults = []
             self.categories = []
+            self.isSearchingFiles = false
+        }
+    }
+    
+    // 清除文件搜索结果 - 用于退出文件搜索模式时清理状态
+    func clearFileSearchResults() {
+        // 只清除文件相关结果，保留普通搜索结果
+        searchResultManager.clearFileResults()
+        
+        // 确保UI状态同步更新
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.fileSearchResults = []
+            self.isSearchingFiles = false
         }
     }
 } 
