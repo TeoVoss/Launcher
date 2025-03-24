@@ -11,16 +11,14 @@ struct AppInfo: Identifiable {
     let bundleID: String?
     let icon: NSImage
     let lastUsedDate: Date?
-    let isSystemApp: Bool
     
-    init(name: String, localizedNames: [String] = [], path: String, bundleID: String? = nil, icon: NSImage, lastUsedDate: Date? = nil, isSystemApp: Bool) {
+    init(name: String, localizedNames: [String] = [], path: String, bundleID: String? = nil, icon: NSImage, lastUsedDate: Date? = nil) {
         self.name = name
         self.localizedNames = localizedNames
         self.path = path
         self.bundleID = bundleID
         self.icon = icon
         self.lastUsedDate = lastUsedDate
-        self.isSystemApp = isSystemApp
     }
 }
 
@@ -48,10 +46,19 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
     // 应用列表缓存
     private var applications: [AppInfo] = []
     
+    // 应用加载状态
+    private var isLoadingApps = false
+    private var appsLoadCompletionHandlers: [() -> Void] = []
+    
+    // 缓存最后一次查询结果
+    private var lastQueryResults: [String: [SearchResult]] = [:]
+    
     override init() {
         super.init()
-        DispatchQueue.main.async {
-            self.loadAllApps()
+        
+        // 在后台线程加载应用
+        Task {
+            await loadAllAppsAsync()
         }
     }
     
@@ -67,30 +74,80 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
         }
     }
     
-    // 加载所有应用信息
-    private func loadAllApps() {
-        self.setupMetadataQuery()
+    // 异步加载所有应用信息
+    private func loadAllAppsAsync() async {
+        isLoadingApps = true
         
-        guard let metadataQuery = self.metadataQuery else {
-            return
+        // 在后台线程执行耗时操作
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else {
+                    continuation.resume()
+                    return
+                }
+                
+                self.setupMetadataQuery()
+                
+                guard let metadataQuery = self.metadataQuery else {
+                    self.isLoadingApps = false
+                    continuation.resume()
+                    return
+                }
+                
+                // 移除现有的观察者
+                NotificationCenter.default.removeObserver(self)
+                
+                // 应用类型谓词
+                let appTypePredicate = NSPredicate(format: "kMDItemContentType = 'com.apple.application-bundle'")
+                metadataQuery.predicate = appTypePredicate
+                
+                // 完成处理器
+                let completionHandler: () -> Void = {
+                    self.isLoadingApps = false
+                    
+                    // 执行所有等待的完成处理器
+                    DispatchQueue.main.async {
+                        // 手动跟踪应用加载情况
+                        print("应用加载完成，共找到 \(self.allApps.count) 个应用")
+                        for handler in self.appsLoadCompletionHandlers {
+                            handler()
+                        }
+                        self.appsLoadCompletionHandlers.removeAll()
+                    }
+                    
+                    continuation.resume()
+                }
+                
+                // 设置完成通知处理
+                NotificationCenter.default.addObserver(
+                    forName: .NSMetadataQueryDidFinishGathering,
+                    object: metadataQuery,
+                    queue: .main
+                ) { [weak self] notification in
+                    guard let self = self else { return }
+                    self.handleInitialAppLoad(notification: notification)
+                    completionHandler()
+                }
+                
+                // 设置超时机制
+                DispatchQueue.main.asyncAfter(deadline: .now() + 20.0) {
+                    if self.isLoadingApps {
+                        // 超时后，如果仍在加载，停止查询并调用完成处理器
+                        print("应用加载超时")
+                        metadataQuery.stop()
+                        NotificationCenter.default.removeObserver(
+                            self,
+                            name: .NSMetadataQueryDidFinishGathering,
+                            object: metadataQuery
+                        )
+                        completionHandler()
+                    }
+                }
+                
+                print("开始加载应用列表...")
+                metadataQuery.start()
+            }
         }
-        
-        // 移除现有的观察者
-        NotificationCenter.default.removeObserver(self)
-        
-        // 应用类型谓词
-        let appTypePredicate = NSPredicate(format: "kMDItemContentType = 'com.apple.application-bundle'")
-        metadataQuery.predicate = appTypePredicate
-        
-        // 设置完成通知处理
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleInitialAppLoad),
-            name: .NSMetadataQueryDidFinishGathering,
-            object: metadataQuery
-        )
-        
-        metadataQuery.start()
     }
     
     // 获取应用的多语言名称
@@ -140,6 +197,7 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
     
     @objc private func handleInitialAppLoad(notification: Notification) {
         guard let query = notification.object as? NSMetadataQuery else {
+            print("handleInitialAppLoad: 无法获取查询对象")
             return
         }
         
@@ -149,6 +207,8 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
         self.allApps = []
         
         let contentTypeAttr = kMDItemContentType as String
+        
+        print("处理应用查询结果，结果数: \(query.results.count)")
         
         for item in query.results as! [NSMetadataItem] {
             guard let path = item.value(forAttribute: kMDItemPath as String) as? String else { 
@@ -170,7 +230,7 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
             let lastUsedDate = item.value(forAttribute: kMDItemLastUsedDate as String) as? Date
             
             // 处理应用程序
-            if contentType == "com.apple.application-bundle" || path.hasSuffix(".app") {
+            if isInSystemDirectory(path) && (contentType == "com.apple.application-bundle" || path.hasSuffix(".app")) {
                 // 获取Bundle ID
                 let bundleID = Bundle(path: path)?.bundleIdentifier
                 
@@ -181,15 +241,18 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
                     localizedNames.append(cleanDisplayName)
                 }
                 
-                let isSystemApp = isInSystemDirectory(path)
+                // 排除指定的应用
+                if self.excludedApps.contains(cleanDisplayName) {
+                    continue
+                }
+                
                 let appInfo = AppInfo(
                     name: cleanDisplayName,
                     localizedNames: localizedNames,
                     path: path,
                     bundleID: bundleID,
                     icon: icon,
-                    lastUsedDate: lastUsedDate,
-                    isSystemApp: isSystemApp
+                    lastUsedDate: lastUsedDate
                 )
                 self.allApps.append(appInfo)
             }
@@ -240,16 +303,40 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
     }
     
     // 搜索应用程序
-    func search(query: String, systemAppsOnly: Bool = true) -> [SearchResult] {
+    func search(query: String) -> [SearchResult] {
+        // 修改默认值为false，允许搜索所有应用
         if query.isEmpty {
             return []
         }
         
         let searchQueryText = query.lowercased()
+        let cacheKey = "\(searchQueryText)"
+        
+        // 检查缓存
+        if let cachedResults = lastQueryResults[cacheKey] {
+            return cachedResults
+        }
         
         // 如果应用列表为空，尝试立即加载
         if self.allApps.isEmpty {
-            self.loadAllApps()
+            // 如果应用正在加载中，添加完成处理器
+            if isLoadingApps {
+                print("应用加载中，添加完成回调")
+                // 添加完成后回调，将在应用加载完成后调用
+                appsLoadCompletionHandlers.append { [weak self] in
+                    guard let self = self else { return }
+                    let results = self.performSearch(query: searchQueryText)
+                    DispatchQueue.main.async {
+                        self.appResults = results
+                    }
+                }
+            } else {
+                // 如果不在加载中，启动加载过程
+                print("开始加载应用")
+                Task {
+                    await loadAllAppsAsync()
+                }
+            }
             
             // 为防止应用加载期间没有结果显示，这里可以返回一个临时结果
             let tempResult = SearchResult(
@@ -266,9 +353,32 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
             return [tempResult]
         }
         
+        // 执行实际搜索
+        let results = performSearch(query: searchQueryText)
+        
+        // 缓存结果
+        lastQueryResults[cacheKey] = results
+        
+        // 限制缓存大小
+        if lastQueryResults.count > 20 {
+            let keysToRemove = Array(lastQueryResults.keys.prefix(lastQueryResults.count - 20))
+            for key in keysToRemove {
+                lastQueryResults.removeValue(forKey: key)
+            }
+        }
+        
+        // 调试信息
+        print("应用搜索完成，找到 \(results.count) 个结果")
+        
+        return results
+    }
+    
+    // 实际执行搜索的方法
+    private func performSearch(query: String) -> [SearchResult] {
+        let searchQueryText = query.lowercased()
+        
         // 在内存中过滤应用
         let filteredApps = self.allApps
-            .filter { systemAppsOnly ? $0.isSystemApp : true }
             .filter { app in
                 appMatchesQuery(app: app, query: searchQueryText)
             }
@@ -288,7 +398,7 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
             }
         
         // 对结果进行排序
-        let sortedApps = sortSearchResults(filteredApps)
+        let sortedApps = BaseSearchService.sortSearchResults(filteredApps)
         
         // 更新可观察的结果属性
         DispatchQueue.main.async {
@@ -301,13 +411,13 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
     // 判断应用是否匹配查询
     private func appMatchesQuery(app: AppInfo, query: String) -> Bool {
         // 检查主名称
-        if nameMatchesQuery(name: app.name, query: query) {
+        if BaseSearchService.nameMatchesQuery(name: app.name, query: query) {
             return true
         }
         
         // 检查所有本地化名称
         for name in app.localizedNames {
-            if nameMatchesQuery(name: name, query: query) {
+            if BaseSearchService.nameMatchesQuery(name: name, query: query) {
                 return true
             }
         }
@@ -317,13 +427,13 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
     
     // 计算应用相关性分数
     private func calculateAppRelevanceScore(app: AppInfo, query: String) -> Int {
-        let score = calculateRelevanceScore(name: app.name, query: query)
+        let score = BaseSearchService.calculateRelevanceScore(name: app.name, query: query)
         
         // 如果主名称匹配度不高，检查本地化名称
         if score < 70 {
             var highestScore = score
             for name in app.localizedNames {
-                let localizedScore = calculateRelevanceScore(name: name, query: query)
+                let localizedScore = BaseSearchService.calculateRelevanceScore(name: name, query: query)
                 if localizedScore > highestScore {
                     highestScore = localizedScore
                 }

@@ -75,8 +75,7 @@ class ShortcutSearchService: BaseSearchService, ObservableObject {
                                 path: commandPath,
                                 bundleID: nil,
                                 icon: icon,
-                                lastUsedDate: nil,
-                                isSystemApp: false
+                                lastUsedDate: nil
                             )
                             self.allShortcuts.append(appInfo)
                         }
@@ -195,10 +194,10 @@ class ShortcutSearchService: BaseSearchService, ObservableObject {
         // 在内存中过滤快捷指令
         let filteredShortcuts = self.allShortcuts
             .filter { app in
-                nameMatchesQuery(name: app.name, query: searchQueryText)
+                BaseSearchService.nameMatchesQuery(name: app.name, query: searchQueryText)
             }
             .map { app -> SearchResult in
-                let relevanceScore = calculateRelevanceScore(name: app.name, query: searchQueryText)
+                let relevanceScore = BaseSearchService.calculateRelevanceScore(name: app.name, query: searchQueryText)
                 return SearchResult(
                     id: UUID(),
                     name: app.name,
@@ -213,7 +212,7 @@ class ShortcutSearchService: BaseSearchService, ObservableObject {
             }
         
         // 对结果进行排序
-        let sortedShortcuts = sortSearchResults(filteredShortcuts)
+        let sortedShortcuts = BaseSearchService.sortSearchResults(filteredShortcuts)
         
         // 更新可观察的结果属性
         DispatchQueue.main.async {

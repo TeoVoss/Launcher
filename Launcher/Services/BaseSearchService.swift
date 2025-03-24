@@ -3,8 +3,8 @@ import AppKit
 
 // 基础搜索服务 - 为所有搜索服务提供共享功能
 class BaseSearchService {
-    // 计算字符串相关性分数的共享方法
-    func calculateRelevanceScore(name: String, query: String) -> Int {
+    // 计算字符串相关性分数的共享方法 - 改为class方法
+    class func calculateRelevanceScore(name: String, query: String) -> Int {
         let lowercaseName = name.lowercased()
         let lowercaseQuery = query.lowercased()
         
@@ -48,8 +48,8 @@ class BaseSearchService {
         return 0
     }
     
-    // 检查字符串是否匹配查询
-    func nameMatchesQuery(name: String, query: String) -> Bool {
+    // 检查字符串是否匹配查询 - 改为class方法
+    class func nameMatchesQuery(name: String, query: String) -> Bool {
         let lowercaseName = name.lowercased()
         let lowercaseQuery = query.lowercased()
         
@@ -92,8 +92,8 @@ class BaseSearchService {
         return false
     }
     
-    // 检查字符串是否包含中文字符
-    func containsChineseCharacters(_ text: String) -> Bool {
+    // 检查字符串是否包含中文字符 - 改为class方法
+    class func containsChineseCharacters(_ text: String) -> Bool {
         let pattern = "\\p{Han}"
         if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
             let range = NSRange(location: 0, length: text.utf16.count)
@@ -102,8 +102,8 @@ class BaseSearchService {
         return false
     }
     
-    // 排序搜索结果
-    func sortSearchResults(_ results: [SearchResult]) -> [SearchResult] {
+    // 排序搜索结果 - 改为class方法
+    class func sortSearchResults(_ results: [SearchResult]) -> [SearchResult] {
         results.sorted { (result1, result2) in
             // 首先比较最近使用时间
             if let date1 = result1.lastUsedDate, let date2 = result2.lastUsedDate {
@@ -121,8 +121,8 @@ class BaseSearchService {
         }
     }
     
-    // 为搜索字符串构建Spotlight谓词
-    func buildSearchPredicates(forQuery query: String) -> NSPredicate {
+    // 为搜索字符串构建Spotlight谓词 - 改为class方法
+    class func buildSearchPredicates(forQuery query: String) -> NSPredicate {
         let queryWords = query.components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
             .map { $0.lowercased() }

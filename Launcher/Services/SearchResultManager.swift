@@ -16,6 +16,9 @@ class SearchResultManager: ObservableObject {
     // 用于取消订阅
     private var cancellables = Set<AnyCancellable>()
     
+    // 用于保存当前的搜索任务
+    private var currentSearchTask: Task<Void, Never>? = nil
+    
     // 初始化所有搜索服务
     init() {
         self.appSearchService = ApplicationSearchService()
@@ -55,8 +58,11 @@ class SearchResultManager: ObservableObject {
             .store(in: &cancellables)
     }
     
-    // 执行搜索
+    // 执行搜索 - 使用并发方式
     func search(query: String) {
+        // 取消之前的搜索任务
+        currentSearchTask?.cancel()
+        
         // 清空之前的结果
         if query.isEmpty {
             clearResults()
@@ -65,18 +71,31 @@ class SearchResultManager: ObservableObject {
         
         isSearching = true
         
-        // 并行执行不同类型的搜索
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        // 创建新的并发搜索任务
+        currentSearchTask = Task { [weak self] in
             guard let self = self else { return }
             
-            // 搜索系统应用
-            _ = self.appSearchService.search(query: query, systemAppsOnly: true)
+            // 标记搜索开始
+            await MainActor.run {
+                self.isSearching = true
+            }
             
-            // 搜索快捷指令
-            _ = self.shortcutSearchService.search(query: query)
+            // 检查是否取消
+            if Task.isCancelled { return }
             
-            // 不再默认搜索文件，改为仅在用户选择文件搜索入口时才搜索
-            // self.fileSearchService.search(query: query)
+            // 并发执行不同类型的搜索
+            async let systemAppsResults = self.appSearchService.search(query: query)
+            async let shortcutsResults = self.shortcutSearchService.search(query: query)
+            
+            // 等待所有搜索完成
+            _ = await [systemAppsResults, shortcutsResults]
+            
+            // 搜索完成后更新状态
+            if !Task.isCancelled {
+                await MainActor.run {
+                    self.isSearching = false
+                }
+            }
         }
     }
     
@@ -88,32 +107,57 @@ class SearchResultManager: ObservableObject {
         }
         
         // 专门执行文件搜索
-        DispatchQueue.main.async { [weak self] in
+        Task { [weak self] in
             guard let self = self else { return }
-            self.fileSearchService.search(query: query)
+            
+            await MainActor.run {
+                self.fileSearchService.search(query: query)
+            }
         }
     }
     
     // 清空文件搜索结果
     func clearFileResults() {
-        DispatchQueue.main.async {
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
             self.fileSearchService.fileResults = []
             // 确保更新结果集，避免残留
             self.updateResults()
         }
     }
     
-    // 更新最终结果集
+    // 更新最终结果集 - 优化合并逻辑
     private func updateResults() {
         // 合并所有结果
-        let allResults = appSearchService.appResults + 
-                         shortcutSearchService.shortcutResults + 
-                         fileSearchService.fileResults
+        let allResults = combineResults()
+        
+        // 添加调试日志
+        print("搜索结果汇总:")
+        print("- 应用结果: \(appSearchService.appResults.count)")
+        print("- 快捷指令结果: \(shortcutSearchService.shortcutResults.count)")
+        print("- 文件结果: \(fileSearchService.fileResults.count)")
+        print("- 合并结果总数: \(allResults.count)")
         
         // 更新发布属性
         searchResults = allResults
         categories = categorizeResults(allResults)
         isSearching = false
+    }
+    
+    // 优化结果合并过程，减少重复计算
+    private func combineResults() -> [SearchResult] {
+        var allResults = [SearchResult]()
+        
+        // 添加应用搜索结果
+        allResults.append(contentsOf: appSearchService.appResults)
+        
+        // 添加快捷指令搜索结果
+        allResults.append(contentsOf: shortcutSearchService.shortcutResults)
+        
+        // 添加文件搜索结果
+        allResults.append(contentsOf: fileSearchService.fileResults)
+        
+        return allResults
     }
     
     // 根据类别组织结果
@@ -146,7 +190,7 @@ class SearchResultManager: ObservableObject {
     
     // 清空搜索结果
     func clearResults() {
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.searchResults = []
             self.categories = []
             self.isSearching = false
