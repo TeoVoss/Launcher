@@ -609,4 +609,4 @@ extension View {
     func contentHeightReader(onChange: @escaping (CGFloat) -> Void) -> some View {
         modifier(ContentHeightReaderModifier(onChange: onChange))
     }
-} 
+}

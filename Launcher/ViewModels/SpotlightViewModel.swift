@@ -42,9 +42,9 @@ class SpotlightViewModel: ObservableObject {
         searchText.count >= 3
     }
     
-    // 显示结果 - 排除特殊类型
+    // 显示结果 - 只包含应用和快捷方式
     var displayResults: [SearchResult] {
-        return _cachedDisplayResults.filter { $0.type != .ai && $0.type != .file }
+        return _cachedDisplayResults.filter { $0.type == .application || $0.type == .shortcut }
     }
     
     init(searchService: SearchService, aiService: AIService) {
@@ -108,8 +108,11 @@ class SpotlightViewModel: ObservableObject {
         // 标记搜索开始
         isSearching = true
         
+        // 对搜索文本进行trim处理
+        let trimmedText = text.trim()
+        
         // 空搜索直接处理
-        if text.isEmpty {
+        if trimmedText.isEmpty {
             // 批量应用所有更改
             DispatchQueue.main.async { [self] in
                 // 重置所有缓存
@@ -123,7 +126,7 @@ class SpotlightViewModel: ObservableObject {
         // 正常搜索处理
         Task { @MainActor in
             // 执行搜索并等待结果
-            await searchService.search(query: text)
+            await searchService.search(query: trimmedText)
         }
     }
     
@@ -146,7 +149,7 @@ class SpotlightViewModel: ObservableObject {
             self._cachedDisplayResults = entries
             
             // 确保有结果时选中第一项
-            if !entries.isEmpty && self.selectedIndex == nil {
+            if !entries.isEmpty {
                 self.selectedIndex = 0
             }
         }

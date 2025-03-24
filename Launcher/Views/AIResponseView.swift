@@ -553,16 +553,7 @@ struct AIResponseView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // 显示内容或加载指示器
-            if aiService.isLoading && aiService.response.isEmpty {
-                // 加载中显示指示器
-                VStack(alignment: .center) {
-                    ProgressView()
-                        .scaleEffect(1)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.vertical, 30)
-                }
-                .frame(height: minHeight)
-            } else if aiService.response.isEmpty {
+            if aiService.response.isEmpty && !aiService.isLoading {
                 // 未开始或未收到响应
                 Text("AI正在等待您的问题...")
                     .foregroundColor(.secondary)
