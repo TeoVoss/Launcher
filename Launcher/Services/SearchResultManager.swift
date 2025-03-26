@@ -91,8 +91,6 @@ class SearchResultManager: ObservableObject {
             // 等待所有搜索完成
             _ = await [systemAppsResults, shortcutsResults]
             
-            await print("SRM 执行结果，应用 \(systemAppsResults.count)个结果")
-            
             // 搜索完成后更新状态
             if !Task.isCancelled {
                 await MainActor.run {

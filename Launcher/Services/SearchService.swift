@@ -74,7 +74,6 @@ class SearchService: ObservableObject {
             guard let self = self else { return }
             
             // 执行搜索
-            print("SS 执行一次")
             self.searchResultManager.search(query: query)
             
             // 等待搜索完成
