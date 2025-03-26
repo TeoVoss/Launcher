@@ -344,4 +344,8 @@ class FileSearchService: BaseSearchService, ObservableObject {
             return result1.relevanceScore > result2.relevanceScore
         }
     }
-} 
+    
+    func clearResults() {
+        fileResults = []
+    }
+}

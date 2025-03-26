@@ -267,10 +267,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func hideWindow() {
-        guard let window = self.window, let spotlightView = self.spotlightView else { return }
-        
-        // 重置搜索状态
-        spotlightView.resetSearch()
+        guard let window = self.window else { return }
         
         // 重置窗口大小并隐藏 - 使用协调器统一处理
         NSAnimationContext.runAnimationGroup { context in

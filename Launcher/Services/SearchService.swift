@@ -47,19 +47,6 @@ class SearchService: ObservableObject {
                 self?.searchResults = results
             }
             .store(in: &cancellables)
-        
-        // 订阅分类结果更新
-        searchResultManager.$categories
-            .receive(on: RunLoop.main)
-            .sink { [weak self] categories in
-                self?.categories = categories
-                
-                // 更新文件搜索结果 - 保持兼容性
-                let fileResults = categories.first(where: { $0.title == "最近文件" })?.results ?? []
-                let nonSystemApps = categories.first(where: { $0.title == "其他应用程序" })?.results ?? []
-                self?.fileSearchResults = nonSystemApps + fileResults
-            }
-            .store(in: &cancellables)
     }
     
     // 保持与原有API兼容的搜索方法 - 添加缓存支持
@@ -69,7 +56,6 @@ class SearchService: ObservableObject {
         
         // 如果查询为空，则直接清除结果
         if query.isEmpty {
-            clearResults()
             return
         }
         
@@ -88,6 +74,7 @@ class SearchService: ObservableObject {
             guard let self = self else { return }
             
             // 执行搜索
+            print("SS 执行一次")
             self.searchResultManager.search(query: query)
             
             // 等待搜索完成
@@ -173,49 +160,7 @@ class SearchService: ObservableObject {
         // 取消所有搜索任务
         currentSearchTask?.cancel()
         currentFileSearchTask?.cancel()
-        
         searchResultManager.clearResults()
-        // 同时确保文件搜索结果也被清除
-        Task { @MainActor [weak self] in
-            guard let self = self else { return }
-            self.fileSearchResults = []
-        }
-    }
-    
-    // 清空所有类型的搜索结果 - 用于彻底重置搜索状态
-    func clearAllResults() {
-        // 取消所有搜索任务
-        currentSearchTask?.cancel()
-        currentFileSearchTask?.cancel()
-        
-        // 清空结果管理器中的所有结果
-        searchResultManager.clearResults()
-        searchResultManager.clearFileResults()
-        
-        // 确保UI状态同步更新
-        Task { @MainActor [weak self] in
-            guard let self = self else { return }
-            self.searchResults = []
-            self.fileSearchResults = []
-            self.categories = []
-            self.isSearchingFiles = false
-        }
-    }
-    
-    // 清除文件搜索结果 - 用于退出文件搜索模式时清理状态
-    func clearFileSearchResults() {
-        // 取消文件搜索任务
-        currentFileSearchTask?.cancel()
-        
-        // 只清除文件相关结果，保留普通搜索结果
-        searchResultManager.clearFileResults()
-        
-        // 确保UI状态同步更新
-        Task { @MainActor [weak self] in
-            guard let self = self else { return }
-            self.fileSearchResults = []
-            self.isSearchingFiles = false
-        }
     }
     
     // 添加分页搜索文件的方法 - 保持原有功能
@@ -259,4 +204,4 @@ class SearchService: ObservableObject {
         // 标记搜索结束
         isSearchingFiles = false
     }
-} 
+}

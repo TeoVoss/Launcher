@@ -443,4 +443,8 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
         
         return score
     }
-} 
+    
+    func clearResults() {
+        appResults = []
+    }
+}

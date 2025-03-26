@@ -35,6 +35,7 @@ class SearchResultManager: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] results in
                 guard let self = self else { return }
+                print("- 应用: \(appSearchService.appResults.count)")
                 self.updateResults()
             }
             .store(in: &cancellables)
@@ -44,6 +45,7 @@ class SearchResultManager: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] results in
                 guard let self = self else { return }
+                print("- 快捷指令: \(shortcutSearchService.shortcutResults.count)")
                 self.updateResults()
             }
             .store(in: &cancellables)
@@ -53,6 +55,7 @@ class SearchResultManager: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] results in
                 guard let self = self else { return }
+                print("- 文件: \(fileSearchService.fileResults.count)")
                 self.updateResults()
             }
             .store(in: &cancellables)
@@ -63,9 +66,7 @@ class SearchResultManager: ObservableObject {
         // 取消之前的搜索任务
         currentSearchTask?.cancel()
         
-        // 清空之前的结果
         if query.isEmpty {
-            clearResults()
             return
         }
         
@@ -89,6 +90,8 @@ class SearchResultManager: ObservableObject {
             
             // 等待所有搜索完成
             _ = await [systemAppsResults, shortcutsResults]
+            
+            await print("SRM 执行结果，应用 \(systemAppsResults.count)个结果")
             
             // 搜索完成后更新状态
             if !Task.isCancelled {
@@ -120,9 +123,7 @@ class SearchResultManager: ObservableObject {
     func clearFileResults() {
         Task { @MainActor [weak self] in
             guard let self = self else { return }
-            self.fileSearchService.fileResults = []
-            // 确保更新结果集，避免残留
-            self.updateResults()
+            self.fileSearchService.clearResults()
         }
     }
     
@@ -132,10 +133,6 @@ class SearchResultManager: ObservableObject {
         let allResults = combineResults()
         
         // 添加调试日志
-        print("搜索结果汇总:")
-        print("- 应用结果: \(appSearchService.appResults.count)")
-        print("- 快捷指令结果: \(shortcutSearchService.shortcutResults.count)")
-        print("- 文件结果: \(fileSearchService.fileResults.count)")
         print("- 合并结果总数: \(allResults.count)")
         
         // 更新发布属性
@@ -194,6 +191,9 @@ class SearchResultManager: ObservableObject {
             self.searchResults = []
             self.categories = []
             self.isSearching = false
+            appSearchService.clearResults()
+            shortcutSearchService.clearResults()
+            fileSearchService.clearResults()
         }
     }
     

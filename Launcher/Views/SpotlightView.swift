@@ -54,11 +54,7 @@ struct SpotlightView: View {
         VStack(spacing: 0) {
             // 搜索栏
             SearchBarView(
-                searchText: $viewModel.searchText,
-                onClear: {
-                    viewModel.resetSearch()
-                    selectedModule = .none
-                }
+                searchText: $viewModel.searchText
             )
             .frame(height: 60)
             
@@ -88,7 +84,7 @@ struct SpotlightView: View {
                                     // 首次展开AI响应
                                     viewModel.toggleAIResponse()
                                 }
-                                selectedModule = .ai
+                                
                             }) {
                                 HStack {
                                     Text("问：\(viewModel.searchText)")
@@ -219,7 +215,7 @@ struct SpotlightView: View {
                             // 文件搜索结果
                             if viewModel.fileSearchExpanded {
                                 // 显示最多10个文件结果
-                                let fileResults = viewModel.searchService.fileSearchResults
+                                let fileResults = viewModel.displayFileResults
                                 let displayCount = min(10, fileResults.count)
                                 
                                 // 文件结果列表
@@ -289,10 +285,6 @@ struct SpotlightView: View {
         }
         .onChange(of: viewModel.searchText, perform: { value in
             updateHeight()
-            // 自动触发搜索
-            debouncer.run {
-                viewModel.updateSearchResults(for: value)
-            }
         })
         .onChange(of: viewModel.aiResponseExpanded, perform: { value in
             updateHeight()
@@ -305,6 +297,48 @@ struct SpotlightView: View {
                 viewModel.requestFocus()
             }
         })
+    }
+    
+    private func updateSelectedModule() {
+        switch selectedModule {
+        case .none:
+            if viewModel.shouldShowAIOption {
+                selectedModule = .ai
+            } else if !viewModel.displayResults.isEmpty {
+                // 无选择时，选择应用第一个
+                selectedModule = .app(0)
+                viewModel.selectedIndex = 0
+            } else if !viewModel.searchText.isEmpty {
+                selectedModule = .file
+            }
+        case .ai:
+            break
+        case .app(let index):
+            if !viewModel.displayResults.isEmpty {
+                selectedModule = .app(0)
+                viewModel.selectedIndex = 0
+            } else if viewModel.shouldShowAIOption {
+                selectedModule = .ai
+            } else if !viewModel.searchText.isEmpty {
+                selectedModule = .file
+            }
+        case .file:
+            break
+        case .fileResult(let index):
+            if viewModel.fileSearchExpanded {
+                if !viewModel.displayFileResults.isEmpty {
+                    // 移动到上一个文件结果
+                    selectedModule = .fileResult(0)
+                    viewModel.selectedFileIndex = 0
+                } else {
+                    // 如果是第一个文件结果，移动到文件搜索行
+                    selectedModule = .file
+                }
+            }
+        }
+        if viewModel.searchText.isEmpty {
+            selectedModule = .none
+        }
     }
     
     // 计算内容总高度的方法
@@ -338,11 +372,11 @@ struct SpotlightView: View {
             
             // 文件搜索展开高度
             if viewModel.fileSearchExpanded {
-                let fileResultCount = min(10, viewModel.searchService.fileSearchResults.count)
+                let fileResultCount = min(10, viewModel.displayFileResults.count)
                 totalHeight += CGFloat(fileResultCount) * 48 // 每项高度48
                 
                 // 加载更多按钮
-                if viewModel.searchService.fileSearchResults.count > 10 {
+                if viewModel.displayFileResults.count > 10 {
                     totalHeight += 40
                 }
             }
@@ -377,8 +411,8 @@ struct SpotlightView: View {
             }
             selectedModule = .none
         } else if !viewModel.searchText.isEmpty {
-            // 如果搜索栏有内容，清空搜索
-            viewModel.resetSearch()
+            // 如果搜索文本非空，清空搜索文本
+            viewModel.clearSearchText()
             selectedModule = .none
         } else {
             // 完全退出
@@ -442,7 +476,7 @@ struct SpotlightView: View {
             
         case .fileResult(let index):
             // 执行文件结果点击
-            let fileResults = viewModel.searchService.fileSearchResults
+            let fileResults = viewModel.displayFileResults
             if index >= 0 && index < fileResults.count {
                 let result = fileResults[index]
                 viewModel.searchService.executeResult(result)
@@ -454,15 +488,14 @@ struct SpotlightView: View {
     private func handleArrowUp() {
         switch selectedModule {
         case .none:
-            // 无选择时，选择最后一个可用模块
-            if !viewModel.displayResults.isEmpty {
-                let lastIndex = viewModel.displayResults.count - 1
-                selectedModule = .app(lastIndex)
-                viewModel.selectedIndex = lastIndex
-            } else if viewModel.shouldShowAIOption {
+            if viewModel.shouldShowAIOption {
                 selectedModule = .ai
+            } else if !viewModel.displayResults.isEmpty {
+                // 无选择时，选择应用第一个
+                selectedModule = .app(0)
+                viewModel.selectedIndex = 0
             } else if !viewModel.searchText.isEmpty {
-                selectedModule = .file
+                selectedModule = .app(0)
             }
             
         case .ai:
@@ -540,14 +573,14 @@ struct SpotlightView: View {
             
         case .file:
             // 如果文件搜索已展开且有结果，移动到第一个文件结果
-            if viewModel.fileSearchExpanded && !viewModel.searchService.fileSearchResults.isEmpty {
+            if viewModel.fileSearchExpanded && !viewModel.displayFileResults.isEmpty {
                 selectedModule = .fileResult(0)
                 viewModel.selectedFileIndex = 0
             }
             
         case .fileResult(let index):
             if viewModel.fileSearchExpanded {
-                let fileResults = viewModel.searchService.fileSearchResults
+                let fileResults = viewModel.displayFileResults
                 let displayCount = min(10, fileResults.count)
                 
                 if index < displayCount - 1 {
@@ -567,12 +600,8 @@ struct SpotlightView: View {
     }
     
     func requestFocus() {
-        viewModel.requestFocus()
-    }
-    
-    func resetSearch() {
-        viewModel.resetSearch()
-        selectedModule = .none
+        // 通过NotificationCenter发送请求焦点通知
+        NotificationCenter.default.post(name: Notification.Name("RequestSearchFocus"), object: nil)
     }
 }
 

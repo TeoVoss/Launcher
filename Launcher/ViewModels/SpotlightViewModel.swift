@@ -14,6 +14,7 @@ enum ViewMode {
 class SpotlightViewModel: ObservableObject {
     // 搜索状态
     @Published var searchText = ""
+    @Published var selectedModuleIndex: Int?
     @Published var selectedIndex: Int?
     @Published var selectedFileIndex: Int? // 文件搜索结果的专用索引
     
@@ -47,6 +48,10 @@ class SpotlightViewModel: ObservableObject {
         return _cachedDisplayResults.filter { $0.type == .application || $0.type == .shortcut }
     }
     
+    var displayFileResults: [SearchResult] {
+        return _cachedDisplayResults.filter { $0.type == .file }
+    }
+    
     init(searchService: SearchService, aiService: AIService) {
         self.searchService = searchService
         self.aiService = aiService
@@ -67,16 +72,10 @@ class SpotlightViewModel: ObservableObject {
             .removeDuplicates()
             .sink { [weak self] text in
                 guard let self = self else { return }
-                
+
                 // 更新搜索结果
                 self.updateSearchResults(for: text)
                 
-                // 当搜索文本变化时，自动执行文件搜索（如果文件搜索已展开）
-                if !text.isEmpty && self.fileSearchExpanded {
-                    Task {
-                        await self.searchService.searchFiles(query: text)
-                    }
-                }
             }
             .store(in: &cancellables)
         
@@ -113,20 +112,26 @@ class SpotlightViewModel: ObservableObject {
         
         // 空搜索直接处理
         if trimmedText.isEmpty {
-            // 批量应用所有更改
-            DispatchQueue.main.async { [self] in
-                // 重置所有缓存
-                self._cachedDisplayResults = []
-                self.isSearching = false
-                self.selectedIndex = nil
+            if !_cachedDisplayResults.isEmpty {
+                DispatchQueue.main.async { [self] in
+                    // 重置搜索状态
+                    self.resetSearch()
+                }
             }
             return
         }
+        print("updateSearchResults 执行，搜索词是 \(trimmedText)")
         
         // 正常搜索处理
         Task { @MainActor in
             // 执行搜索并等待结果
-            await searchService.search(query: trimmedText)
+            self.searchService.search(query: trimmedText)
+            // 当搜索文本变化时，自动执行文件搜索（如果文件搜索已展开）
+            if self.fileSearchExpanded {
+                Task {
+                    self.searchService.searchFiles(query: trimmedText)
+                }
+            }
         }
     }
     
@@ -199,12 +204,11 @@ class SpotlightViewModel: ObservableObject {
         if fileSearchExpanded {
             // 展开文件搜索时开始执行搜索
             Task {
-                await searchService.searchFiles(query: searchText)
+                searchService.searchFiles(query: searchText)
             }
         } else {
             // 折叠时清理文件搜索状态
             selectedFileIndex = nil
-            searchService.clearFileSearchResults()
         }
         
         // 重新聚焦到搜索框
@@ -252,20 +256,21 @@ class SpotlightViewModel: ObservableObject {
         }
     }
     
+    func clearSearchText() {
+        self.searchText = ""
+    }
+    
     // 重置搜索
     func resetSearch() {
         print("重置所有搜索状态")
-        
-        // 先确保所有搜索结果都被清空
-        searchService.clearResults()
-        searchService.clearFileSearchResults()
         
         // 批量更新UI状态
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
-            // 重置搜索文本和状态
-            self.searchText = ""
+            // 先确保所有搜索结果都被清空
+            searchService.clearResults()
+            // 重置搜索状态
             self.selectedIndex = nil
             self.selectedFileIndex = nil
             self.aiResponseExpanded = false
@@ -290,4 +295,4 @@ class SpotlightViewModel: ObservableObject {
             await searchService.searchMoreFiles(query: searchText, page: fileResultsPage)
         }
     }
-} 
+}

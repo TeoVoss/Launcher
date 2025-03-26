@@ -33,9 +33,35 @@
 		845608682D8290B400EB228E /* LauncherUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LauncherUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		848D88382D94010100E48B64 /* Exceptions for "Launcher" folder in "Launcher" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Views/FileSearchView.swift.old,
+				Views/ResultList/ResultListView.swift.old,
+			);
+			target = 8456084C2D8290B200EB228E /* Launcher */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		848D88392D94010100E48B64 /* Exceptions for "Launcher" folder in "Compile Sources" phase from "Launcher" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 845608492D8290B200EB228E /* Sources */;
+			membershipExceptions = (
+				Views/FileSearchView.swift.old,
+				Views/ResultList/ResultListView.swift.old,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		8456084F2D8290B200EB228E /* Launcher */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				848D88382D94010100E48B64 /* Exceptions for "Launcher" folder in "Launcher" target */,
+				848D88392D94010100E48B64 /* Exceptions for "Launcher" folder in "Compile Sources" phase from "Launcher" target */,
+			);
 			path = Launcher;
 			sourceTree = "<group>";
 		};

@@ -94,3 +94,8 @@ instruments -t Time\ Profiler Launcher.app
 - **性能优化**：已集成XCTest性能测试框架
 
 > 完整API文档与性能优化指南参见：`/Docs/API.md`
+
+### 4. TODO
+FileSearchService 里有 search 和 searchFiles 两个方法，外部调用混乱
+SearchService 中，实现的 SearchFiles 和 SearchMoreFiles 功能和 FileSearchService 的功能有一些重复，而且 SearchMoreFiles 还有 bug
+很多地方收到空字符的时候，会重复清除之前的结果

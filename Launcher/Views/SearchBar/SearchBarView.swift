@@ -79,7 +79,6 @@ struct SearchBarView: View {
     
     @Binding var searchText: String
     @FocusState private var isFocused: Bool
-    var onClear: () -> Void
     
     // 固定搜索框高度
     private let searchBarHeight: CGFloat = 44
@@ -135,51 +134,6 @@ struct SearchBarView: View {
                     .frame(maxWidth: .infinity, maxHeight: searchBarHeight, alignment: .leading)
                     // 使用调试工具控制边框显示
                     .debugBorder(.green, width: 0.5)
-                    
-                    // 清除按钮区域 - 固定存在，通过opacity控制
-                    ZStack {
-                        Button(action: {
-                            // 防止重复触发
-                            if isClearing { return }
-                            isClearing = true
-                            
-                            // 先记住当前文本
-                            let textToBeCleared = searchText
-                            
-                            // 批处理所有UI更新，防止闪烁
-                            let clearTask = DispatchWorkItem {
-                                // 延迟执行清除，给UI更新时间
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                    // 安全检查，确保文本未被其他操作修改
-                                    if self.searchText == textToBeCleared {
-                                        self.onClear()
-                                    }
-                                    
-                                    // 重置状态
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                        self.isClearing = false
-                                        self.lastProcessedText = ""
-                                    }
-                                }
-                            }
-                            
-                            // 先更新视觉状态
-                            withAnimation(.easeInOut(duration: 0.1)) {
-                                isTextEmpty = true
-                            }
-                            
-                            // 执行实际的清除操作
-                            DispatchQueue.main.async(execute: clearTask)
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(isClearing) // 清除过程中禁用按钮
-                        .opacity(!isTextEmpty ? 1 : 0) // 控制显示隐藏
-                    }
-                    .frame(width: 20)
                 }
                 .padding(.horizontal, 16)
                 .frame(height: searchBarHeight)
@@ -229,7 +183,7 @@ struct SearchBarView: View {
             pendingStateUpdate = updateTask
             
             // 延迟执行，允许多个快速输入合并
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02, execute: updateTask)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.03, execute: updateTask)
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("RequestSearchFocus"))) { _ in
             isFocused = true

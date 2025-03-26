@@ -57,7 +57,7 @@ class WindowCoordinator: NSObject {
         // 避免不必要的高度更新或者过小的变化
         let minHeightDelta: CGFloat = 2.0
         guard abs(currentHeight - height) > minHeightDelta else {
-            print("【窗口高度】跳过高度更新 - 当前:\(currentHeight), 目标:\(height)")
+//            print("【窗口高度】跳过高度更新 - 当前:\(currentHeight), 目标:\(height)")
             return
         }
         
@@ -65,13 +65,13 @@ class WindowCoordinator: NSObject {
         NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(applyDelayedHeightChange), object: nil)
         
         // 记录目标高度，但延迟应用
-        print("【窗口高度】开始更新窗口高度: \(height), 动画: \(animated), 当前高度: \(currentHeight)")
+//        print("【窗口高度】开始更新窗口高度: \(height), 动画: \(animated), 当前高度: \(currentHeight)")
         let oldHeight = currentHeight
         currentHeight = height
         
         // 更新高度前确保窗口可见
         if !isWindowVisible {
-            print("【窗口高度】窗口不可见，正在显示窗口")
+//            print("【窗口高度】窗口不可见，正在显示窗口")
             showWindow()
         }
         
@@ -93,14 +93,14 @@ class WindowCoordinator: NSObject {
         
         if animated {
             // 使用系统动画函数进行平滑过渡
-            print("【窗口高度】开始动画更新窗口高度")
+//            print("【窗口高度】开始动画更新窗口高度")
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.3  // 稍微延长动画时间
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 context.allowsImplicitAnimation = true
                 window?.animator().setFrame(frameForHeight(currentHeight), display: false)
             } completionHandler: {
-                print("【窗口高度】动画完成，新高度: \(self.currentHeight)")
+//                print("【窗口高度】动画完成，新高度: \(self.currentHeight)")
                 // 延迟发送通知，确保UI已经稳定
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
                     NotificationCenter.default.post(name: WindowCoordinatorDidUpdateHeight, object: nil)
@@ -108,7 +108,7 @@ class WindowCoordinator: NSObject {
             }
         } else {
             // 立即应用高度变化
-            print("【窗口高度】立即更新窗口高度: \(currentHeight)")
+//            print("【窗口高度】立即更新窗口高度: \(currentHeight)")
             window?.setFrame(frameForHeight(currentHeight), display: true)
             
             // 即使没有动画也延迟发送通知
@@ -137,7 +137,7 @@ class WindowCoordinator: NSObject {
     /// 用于批量处理的高度变更应用方法
     @objc private func applyWindowHeightChange() {
         // 这个方法只是一个占位符，实际上高度变更在updateWindowHeight中直接处理
-        print("应用窗口高度变更")
+//        print("应用窗口高度变更")
     }
     
     /// 重置窗口到初始高度

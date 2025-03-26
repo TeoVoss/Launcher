@@ -254,4 +254,8 @@ class ShortcutSearchService: BaseSearchService, ObservableObject {
             // 处理错误
         }
     }
-} 
+    
+    func clearResults() {
+        shortcutResults = []
+    }
+}
