@@ -8,6 +8,8 @@ import Foundation
 struct SpotlightView: View {
     @StateObject private var viewModel: SpotlightViewModel
     @Environment(\.scenePhase) var scenePhase
+    @Environment(\.colorScheme) var colorScheme  // 获取当前颜色模式
+    @EnvironmentObject var settingsManager: SettingsManager  // 获取设置管理器
     private let debouncer = Debouncer(delay: 0.3)
     
     // 控制模块选中状态
@@ -313,7 +315,7 @@ struct SpotlightView: View {
             }
         case .ai:
             break
-        case .app(let index):
+        case .app(_):
             if !viewModel.displayResults.isEmpty {
                 selectedModule = .app(0)
                 viewModel.selectedIndex = 0
@@ -324,7 +326,7 @@ struct SpotlightView: View {
             }
         case .file:
             break
-        case .fileResult(let index):
+        case .fileResult(_):
             if viewModel.fileSearchExpanded {
                 if !viewModel.displayFileResults.isEmpty {
                     // 移动到上一个文件结果

@@ -73,14 +73,6 @@ struct SettingsViewLoader: View {
                     }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("OpenSettingsNotification"))) { _ in
-            // 收到通知后打开设置 - 不再使用openSettings()
-            shouldOpenSettings = true
-            // 使用其他方式打开设置窗口
-            if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "com.apple.SwiftUI.Settings.window" }) {
-                window.makeKeyAndOrderFront(nil)
-            }
-        }
     }
 }
 
@@ -93,6 +85,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var spotlightView: SpotlightView?
     private var windowDelegate: WindowDelegate?
     private var aiService: AIService?
+    private var isSettingsOpen = false
     
     // 标准的应用启动方法
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -112,7 +105,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             setupHotKey()
             setupMainWindow()
             
-            // 设置为辅助应用模式
+            // 设置为辅助应用模式 - 默认隐藏在Dock和任务栏
             NSApp.setActivationPolicy(.accessory)
             
             // 监听隐藏窗口通知
@@ -122,11 +115,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 name: Notification.Name("HideWindowNotification"),
                 object: nil
             )
+            
+            // 监听设置窗口打开/关闭通知
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(settingsWillOpen),
+                name: Notification.Name("OpenSettingsNotification"),
+                object: nil
+            )
+            
+            // 监听设置窗口关闭通知
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(settingsWillClose),
+                name: NSWindow.willCloseNotification,
+                object: nil
+            )
         }
     }
     
     @objc private func hideWindowNotification() {
         hideWindow()
+    }
+    
+    // 当设置窗口即将打开时调用
+    @objc private func settingsWillOpen() {
+        // 设置为常规应用模式，显示在Dock和任务栏
+        NSApp.setActivationPolicy(.regular)
+        self.isSettingsOpen = true
+    }
+    
+    // 当设置窗口即将关闭时调用
+    @objc private func settingsWillClose(_ notification: Notification) {
+        // 检查关闭的是否是设置窗口
+        if let closingWindow = notification.object as? NSWindow,
+           closingWindow.identifier?.rawValue == "com.apple.SwiftUI.Settings.window" {
+            NSApp.setActivationPolicy(.accessory)
+            self.isSettingsOpen = false
+        }
     }
     
     private func setupStatusBar() {
@@ -160,15 +186,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.target = self
         }
         
-        // 监听 Command+, 快捷键
+        // 监听快捷键 - 在搜索框可见状态下处理设置快捷键
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return event }
+            
+            // 处理设置快捷键 Command+逗号 (包括中英文逗号)
             if event.modifierFlags.contains(.command) && 
                (event.charactersIgnoringModifiers == "," || event.charactersIgnoringModifiers == "，") {
-                if self?.window?.isVisible == true && self?.window?.isKeyWindow == true {
-                    self?.openSettings()
+                if self.window?.isVisible == true && self.window?.isKeyWindow == true {
+                    self.openSettings()
                     return nil // 已处理
                 }
             }
+            
+            // 处理关闭设置面板的快捷键 Escape 或 Ctrl+W
+            if self.isSettingsOpen {
+                if event.keyCode == 53 || // Escape
+                   (event.modifierFlags.contains(.control) && event.charactersIgnoringModifiers?.lowercased() == "w") {
+                    if let settingsWindow = NSApp.windows.first(where: { $0.identifier?.rawValue == "com.apple.SwiftUI.Settings.window" }) {
+                        settingsWindow.close()
+                        NSApp.setActivationPolicy(.accessory)
+                        return nil // 已处理
+                    }
+                }
+            }
+            
             return event
         }
     }
@@ -189,6 +231,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if window?.isVisible == true && window?.isKeyWindow == true {
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
+            
+            // 通知设置窗口即将打开
+            NotificationCenter.default.post(name: Notification.Name("OpenSettingsNotification"), object: nil)
             
             // 使用SwiftUI Settings打开系统设置
             let settingsAction = Selector(("_showSettingsWindow:"))
@@ -211,6 +256,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    @MainActor
     private func setupMainWindow() {
         // 确保AIService已初始化
         guard let aiService = self.aiService else { return }
@@ -241,12 +287,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.closeButton)?.isHidden = true
         
-        // 使用新的SpotlightView
+        // 获取设置管理器和当前主题设置
+        let settingsManager = AppManager.shared.getSettingsManager()
+        let colorScheme = settingsManager.getCurrentColorScheme()
+        
+        // 使用新的SpotlightView，并应用主题设置
         let spotlightView = SpotlightView(aiService: aiService)
         self.spotlightView = spotlightView
-        window.contentView = NSHostingView(
-            rootView: spotlightView
-                .environment(\.colorScheme, .dark)
+        
+        // 根据主题设置应用不同的环境
+        let rootView = spotlightView.environmentObject(settingsManager)
+        
+        // 应用颜色模式
+        let hostingView: NSHostingView<AnyView>
+        if let colorScheme = colorScheme {
+            // 使用特定的颜色模式
+            hostingView = NSHostingView(
+                rootView: AnyView(rootView.environment(\.colorScheme, colorScheme))
+            )
+        } else {
+            // 跟随系统
+            hostingView = NSHostingView(
+                rootView: AnyView(rootView)
+            )
+        }
+        
+        window.contentView = hostingView
+        
+        // 监听主题变更通知
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(themeDidChange),
+            name: Notification.Name("ThemeModeChanged"),
+            object: nil
         )
         
         // 设置圆角
@@ -264,6 +337,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.delegate = delegate
         
         self.window = window
+    }
+    
+    // 主题变更通知处理
+    @objc private func themeDidChange() {
+        // 重新加载主窗口以应用新主题
+        Task { @MainActor in
+            setupMainWindow()
+        }
     }
     
     private func hideWindow() {
@@ -335,3 +416,4 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         onWindowResignKey()
     }
 }
+

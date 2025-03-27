@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var validationMessage = ""
     @State private var isValidationSuccess = false
     @State private var selectedTab = 0
+    @State private var themeMode: ThemeMode = .dark
     
     // 常用模型列表
     private let commonModels = [
@@ -69,6 +70,7 @@ struct SettingsView: View {
             endpoint = settingsManager.aiSettings.endpoint
             apiKey = settingsManager.aiSettings.apiKey
             model = settingsManager.aiSettings.model
+            themeMode = settingsManager.aiSettings.themeMode
         }
     }
     
@@ -189,6 +191,40 @@ struct SettingsView: View {
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(12)
+            
+            // 主题设置卡片
+            VStack(spacing: 0) {
+                HStack(alignment: .center, spacing: 15) {
+                    Image(systemName: "paintpalette")
+                        .font(.system(size: 18))
+                        .foregroundColor(.pink)
+                        .frame(width: 30)
+                    
+                    Text("主题模式")
+                        .frame(width: 80, alignment: .leading)
+                    
+                    Picker("主题模式", selection: $themeMode) {
+                        Text("深色模式").tag(ThemeMode.dark)
+                        Text("浅色模式").tag(ThemeMode.light)
+                        Text("跟随系统").tag(ThemeMode.system)
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                    .onChange(of: themeMode) { newValue in
+                        settingsManager.aiSettings.themeMode = newValue
+                        settingsManager.saveSettings()
+                        // 发送主题变更通知
+                        NotificationCenter.default.post(
+                            name: Notification.Name("ThemeModeChanged"),
+                            object: nil
+                        )
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .padding(.vertical, 12)
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(12)
         }
         .frame(maxWidth: .infinity)
     }
@@ -246,6 +282,7 @@ struct SettingsView: View {
                     settingsManager.aiSettings.endpoint = endpoint
                     settingsManager.aiSettings.apiKey = apiKey
                     settingsManager.aiSettings.model = model
+                    settingsManager.aiSettings.themeMode = themeMode
                     settingsManager.saveSettings()
                 }
             }

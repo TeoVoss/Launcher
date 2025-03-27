@@ -1,15 +1,25 @@
 import Foundation
+import SwiftUI
+
+// 定义主题模式枚举
+enum ThemeMode: String, Codable {
+    case dark = "dark"         // 深色模式
+    case light = "light"       // 浅色模式
+    case system = "system"     // 跟随系统
+}
 
 struct AISettings: Codable {
     var endpoint: String
     var apiKey: String
     var model: String
+    var themeMode: ThemeMode   // 添加主题模式设置
     
     static var defaultSettings: AISettings {
         return AISettings(
             endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
             apiKey: "",
-            model: "qwen-max-latest"
+            model: "qwen-max-latest",
+            themeMode: .dark    // 默认深色模式
         )
     }
 }
@@ -31,6 +41,18 @@ class SettingsManager: ObservableObject {
     func saveSettings() {
         if let data = try? JSONEncoder().encode(aiSettings) {
             UserDefaults.standard.set(data, forKey: aiSettingsKey)
+        }
+    }
+    
+    // 获取当前应该使用的颜色模式
+    func getCurrentColorScheme() -> ColorScheme? {
+        switch aiSettings.themeMode {
+        case .dark:
+            return .dark
+        case .light:
+            return .light
+        case .system:
+            return nil // 返回nil表示跟随系统
         }
     }
     

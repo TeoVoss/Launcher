@@ -120,7 +120,6 @@ class SpotlightViewModel: ObservableObject {
             }
             return
         }
-        print("updateSearchResults 执行，搜索词是 \(trimmedText)")
         
         // 正常搜索处理
         Task { @MainActor in
