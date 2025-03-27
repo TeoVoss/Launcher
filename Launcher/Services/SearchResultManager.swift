@@ -4,7 +4,8 @@ import Combine
 
 class SearchResultManager: ObservableObject {
     // 发布结果
-    @Published var searchResults: [SearchResult] = []
+    @Published var appResults: [SearchResult] = []
+    @Published var fileResults: [SearchResult] = []
     @Published var categories: [SearchResultCategory] = []
     @Published var isSearching: Bool = false
     
@@ -56,7 +57,7 @@ class SearchResultManager: ObservableObject {
             .sink { [weak self] results in
                 guard let self = self else { return }
                 print("- 文件: \(fileSearchService.fileResults.count)")
-                self.updateResults()
+                self.updateFileResults()
             }
             .store(in: &cancellables)
     }
@@ -134,8 +135,7 @@ class SearchResultManager: ObservableObject {
         print("- 合并结果总数: \(allResults.count)")
         
         // 更新发布属性
-        searchResults = allResults
-        categories = categorizeResults(allResults)
+        appResults = allResults
         isSearching = false
     }
     
@@ -149,10 +149,11 @@ class SearchResultManager: ObservableObject {
         // 添加快捷指令搜索结果
         allResults.append(contentsOf: shortcutSearchService.shortcutResults)
         
-        // 添加文件搜索结果
-        allResults.append(contentsOf: fileSearchService.fileResults)
-        
         return allResults
+    }
+    
+    private func updateFileResults() {
+        fileResults = fileSearchService.fileResults
     }
     
     // 根据类别组织结果
@@ -186,7 +187,7 @@ class SearchResultManager: ObservableObject {
     // 清空搜索结果
     func clearResults() {
         Task { @MainActor in
-            self.searchResults = []
+            self.appResults = []
             self.categories = []
             self.isSearching = false
             appSearchService.clearResults()

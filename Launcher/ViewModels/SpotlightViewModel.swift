@@ -89,7 +89,7 @@ class SpotlightViewModel: ObservableObject {
             .store(in: &cancellables)
         
         // 监听文件搜索结果变化
-        searchService.$fileSearchResults
+        searchService.$fileResults
             .sink { [weak self] results in
                 guard let self = self else { return }
                 print("【搜索结果】文件搜索完成，获得\(results.count)个结果")
@@ -248,8 +248,8 @@ class SpotlightViewModel: ObservableObject {
             }
         } else if fileSearchExpanded && selectedFileIndex != nil {
             // 如果文件搜索已展开且选中了文件结果
-            if let index = selectedFileIndex, index < searchService.fileSearchResults.count {
-                let result = searchService.fileSearchResults[index]
+            if let index = selectedFileIndex, index < searchService.fileResults.count {
+                let result = searchService.fileResults[index]
                 searchService.executeResult(result)
             }
         }

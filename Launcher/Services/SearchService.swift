@@ -6,7 +6,7 @@ import Combine
 class SearchService: ObservableObject {
     @Published var searchResults: [SearchResult] = []
     @Published var categories: [SearchResultCategory] = []
-    @Published var fileSearchResults: [SearchResult] = []
+    @Published var fileResults: [SearchResult] = []
     @Published var isSearchingFiles: Bool = false
     
     private let searchResultManager: SearchResultManager
@@ -41,10 +41,16 @@ class SearchService: ObservableObject {
     
     private func setupSubscriptions() {
         // 订阅搜索结果更新
-        searchResultManager.$searchResults
+        searchResultManager.$appResults
             .receive(on: RunLoop.main)
             .sink { [weak self] results in
                 self?.searchResults = results
+            }
+            .store(in: &cancellables)
+        searchResultManager.$fileResults
+            .receive(on: RunLoop.main)
+            .sink { [weak self] results in
+                self?.fileResults = results
             }
             .store(in: &cancellables)
     }
@@ -98,7 +104,7 @@ class SearchService: ObservableObject {
         if query.isEmpty {
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
-                self.fileSearchResults = []
+                self.fileResults = []
                 self.isSearchingFiles = false
             }
             searchResultManager.clearFileResults()
@@ -111,7 +117,7 @@ class SearchService: ObservableObject {
             // 使用缓存的结果
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
-                self.fileSearchResults = cachedResults
+                self.fileResults = cachedResults
                 self.isSearchingFiles = false
             }
             return
@@ -137,16 +143,11 @@ class SearchService: ObservableObject {
             if !Task.isCancelled {
                 await MainActor.run {
                     // 缓存结果
-                    self.resultCache.setObject(self.fileSearchResults as NSArray, forKey: cacheKey)
+                    self.resultCache.setObject(self.fileResults as NSArray, forKey: cacheKey)
                     self.isSearchingFiles = false
                 }
             }
         }
-    }
-    
-    // 保持与原有API兼容的打开结果方法
-    func openResult(_ result: SearchResult) {
-        searchResultManager.openResult(result)
     }
     
     // 执行搜索结果的方法 - 与openResult相同
@@ -177,10 +178,10 @@ class SearchService: ObservableObject {
         if let cachedResults = resultCache.object(forKey: cacheKey) as? [SearchResult] {
             // 将缓存的结果添加到现有结果中
             if !cachedResults.isEmpty {
-                let allResults = fileSearchResults + cachedResults
+                let allResults = fileResults + cachedResults
                 // 更新结果，避免重复
                 let uniqueResults = Array(Set(allResults))
-                fileSearchResults = uniqueResults.sorted(by: { $0.name < $1.name })
+                fileResults = uniqueResults.sorted(by: { $0.name < $1.name })
             }
             isSearchingFiles = false
             return
@@ -194,10 +195,10 @@ class SearchService: ObservableObject {
         
         // 将新结果添加到现有结果中
         if !newResults.isEmpty {
-            let allResults = fileSearchResults + newResults
+            let allResults = fileResults + newResults
             // 更新结果，避免重复
             let uniqueResults = Array(Set(allResults))
-            fileSearchResults = uniqueResults.sorted(by: { $0.name < $1.name })
+            fileResults = uniqueResults.sorted(by: { $0.name < $1.name })
         }
         
         // 标记搜索结束

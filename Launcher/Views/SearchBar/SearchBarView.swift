@@ -188,12 +188,5 @@ struct SearchBarView: View {
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("RequestSearchFocus"))) { _ in
             isFocused = true
         }
-        // 监听窗口高度变化，但不触发重建
-        .onReceive(NotificationCenter.default.publisher(for: WindowCoordinatorDidUpdateHeight)) { _ in
-            // 确保保持焦点
-            if !isFocused {
-                isFocused = true
-            }
-        }
     }
 } 

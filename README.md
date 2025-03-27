@@ -97,10 +97,6 @@ instruments -t Time\ Profiler Launcher.app
 
 ### 4. TODO
 FileSearchService 里有 search 和 searchFiles 两个方法，外部调用混乱
-<<<<<<< HEAD
 SearchService 中，实现的 SearchFiles 和 SearchMoreFiles 功能和 FileSearchService 的功能有一些重复，而且 SearchMoreFiles 还有 bug
 
 把不同类型的显示项内容都抽象为 rowview，使之可以动态调整顺序，以及支持更多类型的选择交互
-=======
-SearchService 中，实现的 SearchFiles 和 SearchMoreFiles 功能和 FileSearchService 的功能有一些重复，而且 SearchMoreFiles 还有 bug
->>>>>>> 52b229d150a085a2d29c6244fd0c37c6ff38422f
