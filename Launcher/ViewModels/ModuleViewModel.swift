@@ -78,7 +78,6 @@ class ModuleViewModel: ObservableObject {
             .sink { [weak self] results in
                 guard let self = self else { return }
                 self.handleFileResultsUpdated(results)
-                self.isFileSearchLoading = false
             }
             .store(in: &cancellables)
         

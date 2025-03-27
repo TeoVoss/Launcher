@@ -35,9 +35,6 @@ struct ModularSpotlightView: View {
         .onAppear {
             setupKeyboardHandling()
         }
-        .onChange(of: viewModel.searchText) { _ in
-            updateHeight()
-        }
         .onChange(of: viewModel.aiModuleExpanded) { _ in
             updateHeight()
         }
