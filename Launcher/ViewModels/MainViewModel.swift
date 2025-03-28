@@ -2,7 +2,7 @@ import SwiftUI
 import Combine
 
 @MainActor
-class ModuleViewModel: ObservableObject {
+class MainViewModel: ObservableObject {
     // 各模块的数据
     @Published var modules: [ModuleSection] = []
     

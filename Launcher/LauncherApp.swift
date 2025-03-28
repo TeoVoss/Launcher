@@ -82,7 +82,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var popover: NSPopover?
     var window: NSWindow?
     private var hotKey: HotKey?
-    private var spotlightView: ModularSpotlightView?
+    private var spotlightView: MainView?
     private var windowDelegate: WindowDelegate?
     private var aiService: AIService?
     private var isSettingsOpen = false
@@ -292,7 +292,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let colorScheme = settingsManager.getCurrentColorScheme()
         
         // 使用新的ModularSpotlightView，并应用主题设置
-        let spotlightView = ModularSpotlightView(aiService: aiService)
+        let spotlightView = MainView(aiService: aiService)
         self.spotlightView = spotlightView
         
         // 根据主题设置应用不同的环境

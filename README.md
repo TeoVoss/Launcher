@@ -1,109 +1,202 @@
 # Launcher - macOS智能快捷启动器
 
 ## 项目概述
-Launcher是一款macOS平台的智能快捷启动器，类似于Spotlight，但提供了更强大的功能和更友好的用户界面。它支持应用搜索、文件搜索、AI辅助等多种功能，旨在提高用户的工作效率。
 
-## 技术架构
+Launcher是一款macOS平台的智能快捷启动器应用，灵感来源于Spotlight和Alfred等工具。它允许用户通过全局快捷键快速调出搜索界面，支持应用搜索、文件搜索、快捷指令等多种功能，同时集成了AI辅助能力，旨在提升用户的工作效率。
 
-### 整体架构
-- **SwiftUI**: 用于构建现代化、响应式的用户界面
-- **Combine**: 用于处理异步事件和数据流
-- **MVVM模式**: 采用Model-ViewModel-View架构模式，实现关注点分离
-- **模块化设计**: 将功能划分为多个独立模块，便于维护和扩展
+核心特点：
+- 全局快捷键激活（默认⌘Space）
+- 多模态搜索（应用、文件、快捷指令等）
+- 响应式UI设计
+- AI集成辅助
+- 状态栏便捷访问
 
-### 核心组件
-1. **AppManager**: 单例管理器，负责管理全局状态和设置
-2. **SearchService**: 搜索服务的统一接口，协调各种专门的搜索服务
-3. **ViewModels**: 包括SpotlightViewModel和ModuleViewModel，负责管理UI状态和业务逻辑
-4. **WindowCoordinator**: 管理应用窗口的显示和隐藏
+## 架构设计
 
-## 核心模块实现
+### 核心架构
 
-### 1. 快捷键系统
-- 基于HotKey库实现全局快捷键监听
-- KeyboardHandler工具类处理键盘事件，支持方向键导航、Enter确认和Escape取消等操作
-- 支持自定义快捷键配置
+项目采用MVVM（Model-View-ViewModel）架构模式，结合SwiftUI和Combine框架实现响应式UI：
 
-### 2. 智能搜索系统
-- **BaseSearchService**: 提供基础搜索功能和相关性评分算法
-- **ApplicationSearchService**: 负责应用程序搜索，支持多语言名称匹配
-- **FileSearchService**: 负责文件搜索，使用NSMetadataQuery实现高效文件索引
-- **ShortcutSearchService**: 负责快捷方式搜索
-- **SearchService**: 统一搜索接口，协调各种搜索服务，实现结果缓存和异步搜索
+- **视图层（Views）**：使用SwiftUI构建的界面组件
+- **视图模型层（ViewModels）**：处理业务逻辑和数据转换
+- **模型层（Models）**：定义数据结构和领域模型
+- **服务层（Services）**：提供核心功能实现
+- **工具层（Utils）**：提供通用工具和辅助功能
 
-### 3. AI辅助系统
-- **AIService**: 提供AI对话功能，支持流式响应
-- **AISettings**: 管理AI相关设置，如API密钥、模型选择等
-- **AIResponseView**: 展示AI响应结果的专用视图
+### 数据流动
 
-### 4. 界面渲染系统
-- **SpotlightView**: 主搜索界面，支持多种搜索模式
-- **ModularSpotlightView**: 模块化搜索界面，支持动态调整模块顺序和显示
-- **SearchBarView**: 搜索输入框组件
-- **ResultListView**: 搜索结果列表组件
-- **SelectableItemView**: 可选择项组件，支持高亮和选中状态
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│    Views    │◄───►│  ViewModels │◄───►│   Services  │
+└─────────────┘    └─────────────┘    └─────────────┘
+       ▲                   ▲                  ▲
+       │                   │                  │
+       └───────────────────┼──────────────────┘
+                           │
+                     ┌─────▼─────┐
+                     │   Models  │
+                     └───────────┘
+```
+
+### 模块交互流程
+
+```
+┌─────────────┐  快捷键触发  ┌─────────────┐  查询请求  ┌─────────────┐
+│  键盘监听系统  │───────────►│ 搜索协调服务  │─────────►│ 搜索子系统   │
+└─────────────┘            │ (SearchService) │◄────────┴─────────────┘
+                           │                 │         │ 并发执行
+                           │ 结果聚合/缓存   │◄───────┐
+                           └─────────────┘         │ 应用搜索
+                                              │ 文件搜索
+                                              ▼ 快捷指令
+```
+
+## 核心组件详解
+
+### 1. 主视图模型（MainViewModel）
+
+MainViewModel是应用的核心视图模型，负责：
+
+- 管理搜索文本和结果
+- 协调不同模块的展示状态
+- 处理用户交互和选择
+- 管理AI响应流程
+
+主要属性和方法：
+- `modules`：各功能模块的数据
+- `searchText`：当前搜索文本
+- `selectedItemIndex`：当前选中项
+- `updateSearchResults`：更新搜索结果
+- `handleItemSelection`：处理项目选择
+
+### 2. 搜索服务（SearchService）
+
+SearchService是搜索功能的核心，采用组合模式整合多种搜索能力：
+
+- **应用搜索**：通过ApplicationSearchService实现
+- **快捷指令搜索**：通过ShortcutSearchService实现
+- **文件搜索**：通过FileSearchService实现
+
+搜索服务使用Swift Concurrency实现并发搜索，并通过NSCache缓存结果提升性能。
+
+### 3. AI服务（AIService）
+
+AIService提供AI辅助功能，主要特性：
+
+- 支持流式响应
+- 管理对话历史
+- 处理AI设置和配置
+- 提供响应生成和取消能力
+
+### 4. 界面组件
+
+- **MainView**：应用主界面，整合搜索栏和结果显示
+- **SearchBarView**：搜索输入组件
+- **ModuleSectionView**：模块化结果显示组件
+- **AIResponseView**：AI响应界面，支持富文本和代码块显示
+- **SettingsView**：设置界面
 
 ## 项目结构
 
-### Models
-- **SearchResult**: 搜索结果模型，包含名称、路径、类型、图标等信息
-- **ModuleItems**: 模块项模型，用于模块化界面
-- **AISettings**: AI设置模型
+```
+Launcher/
+├── Assets.xcassets          # 资源文件
+├── Info.plist               # 应用配置
+├── LauncherApp.swift        # 应用入口
+├── Models/                  # 数据模型
+│   ├── AISettings.swift     # AI设置模型
+│   ├── ModuleItems.swift    # 模块项目模型
+│   └── SearchResult.swift   # 搜索结果模型
+├── Services/                # 服务层
+│   ├── AIService.swift      # AI服务
+│   ├── ApplicationSearchService.swift # 应用搜索
+│   ├── BaseSearchService.swift        # 基础搜索
+│   ├── FileSearchService.swift        # 文件搜索
+│   ├── SearchService.swift            # 搜索服务聚合
+│   └── ShortcutSearchService.swift    # 快捷指令搜索
+├── Utils/                   # 基础工具层
+│   ├── Debouncer.swift      # 搜索防抖
+│   ├── DebugTools.swift     # 调试工具
+│   ├── KeyboardHandler.swift # 全局快捷键监听
+│   └── WindowCoordinator.swift # 窗口生命周期管理
+├── ViewModels/              # 视图模型层
+│   └── MainViewModel.swift  # 核心视图模型
+└── Views/                   # 视图层
+    ├── AIResponseView.swift # AI响应视图
+    ├── MainView.swift       # 主界面
+    ├── Modules/             # 模块组件
+    │   ├── ModuleSectionView.swift  # 模块区域视图
+    │   └── SelectableItemView.swift # 可选择项视图
+    ├── SearchBar/           # 搜索栏组件
+    │   └── SearchBarView.swift      # 搜索栏视图
+    └── SettingsView.swift   # 设置界面
+```
 
-### ViewModels
-- **SpotlightViewModel**: 管理搜索视图状态和逻辑
-- **ModuleViewModel**: 管理模块化视图状态和逻辑
+## 关键技术点
 
-### Views
-- **SpotlightView**: 主搜索界面
-- **ModularSpotlightView**: 模块化搜索界面
-- **AIResponseView**: AI响应界面
-- **SearchBar/**: 搜索栏相关组件
-- **ResultList/**: 结果列表相关组件
-- **Modules/**: 模块化界面相关组件
+### 1. 响应式编程
 
-### Services
-- **SearchService**: 统一搜索服务
-- **BaseSearchService**: 基础搜索服务
-- **ApplicationSearchService**: 应用搜索服务
-- **FileSearchService**: 文件搜索服务
-- **ShortcutSearchService**: 快捷方式搜索服务
-- **AIService**: AI服务
+项目大量使用Combine框架实现响应式编程：
 
-### Utils
-- **Debouncer**: 防抖动工具，避免频繁搜索
-- **DebugTools**: 调试工具
-- **KeyboardHandler**: 键盘事件处理工具
-- **LauncherSize**: 界面尺寸常量
-- **WindowCoordinator**: 窗口协调器
+- 使用`@Published`属性包装器发布状态变化
+- 通过`.sink`订阅状态变化并响应
+- 使用`.debounce`实现搜索防抖
+
+### 2. 并发搜索
+
+使用Swift Concurrency实现高效并发搜索：
+
+- 使用`Task`管理异步搜索任务
+- 通过`async/await`简化异步代码
+- 实现任务取消机制避免资源浪费
+
+### 3. 模块化设计
+
+采用模块化设计提高代码可维护性：
+
+- 各搜索服务遵循共同接口
+- 使用组合模式整合多种搜索能力
+- 视图组件高度可复用
+
+## 优化方向
+
+### 1. 架构优化
+
+- **重构SearchService**：进一步分离职责，避免与FileSearchService功能重叠
+- **统一搜索接口**：确保所有搜索服务遵循一致的接口和返回格式
+- **引入依赖注入**：减少组件间的硬编码依赖
+
+### 2. 性能优化
+
+- **改进缓存策略**：实现更智能的缓存机制，区分不同搜索类型
+- **优化搜索算法**：提高搜索精度和速度
+- **实现结果分页**：处理大量搜索结果的场景
+
+### 3. 功能扩展
+
+- **增强AI集成**：提供更多AI辅助功能
+- **添加插件系统**：支持第三方功能扩展
+- **增加自定义快捷键**：允许用户自定义操作快捷键
 
 ## 开发指南
 
-### 1. 环境设置
-- 确保安装最新版本的Xcode
-- 使用Swift Package Manager管理依赖
-- 项目使用SwiftUI构建，需要macOS 11.0或更高版本
+### 环境设置
 
-### 2. 代码规范
-- 遵循MVVM架构模式
-- 使用Combine进行响应式编程
-- 使用@MainActor确保UI操作在主线程执行
-- 使用Task进行异步操作
+1. 确保安装最新版Xcode
+2. 克隆仓库
+3. 使用Xcode打开Launcher.xcodeproj
+4. 构建并运行项目
 
-### 3. 扩展开发
-- **添加新的搜索服务**: 继承BaseSearchService并实现相应的搜索方法
-- **添加新的UI模块**: 在ModuleItems中添加新的模块类型，并创建对应的视图组件
-- **自定义搜索结果处理**: 在SearchService中添加新的结果处理逻辑
+### 添加新搜索服务
 
-### 4. 已知问题和优化方向
-- **FileSearchService**: 存在search和searchFiles两个方法，外部调用混乱
-- **SearchService**: 实现的SearchFiles和SearchMoreFiles功能与FileSearchService功能有重复，且SearchMoreFiles存在bug
-- **UI组件抽象**: 需要将不同类型的显示项内容抽象为统一的RowView，使其可以动态调整顺序，并支持更多类型的选择交互
-- **性能优化**: 大量文件搜索时的性能问题需要进一步优化
-- **AI响应**: 可以进一步优化AI响应的展示方式和交互体验
+1. 在Services目录下创建新的服务类，继承BaseSearchService
+2. 实现search(query:)方法
+3. 在SearchService中注册并集成新服务
+4. 更新SearchResult.Type枚举以支持新的结果类型
 
-## 贡献指南
-- 提交PR前请确保代码通过所有测试
-- 新功能请先创建Issue讨论
-- 遵循项目的代码风格和架构模式
-- 提供详细的注释和文档
+### 代码规范
+
+- 使用SwiftUI的声明式语法构建界面
+- 遵循MVVM设计模式
+- 优先使用Swift的现代特性（如async/await）
+- 为公共API添加文档注释

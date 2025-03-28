@@ -2,15 +2,15 @@ import SwiftUI
 import AppKit
 import Foundation
 
-struct ModularSpotlightView: View {
-    @StateObject private var viewModel: ModuleViewModel
+struct MainView: View {
+    @StateObject private var viewModel: MainViewModel
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var settingsManager: SettingsManager
     
     init(aiService: AIService) {
         let searchService = SearchService()
         self._viewModel = StateObject(
-            wrappedValue: ModuleViewModel(
+            wrappedValue: MainViewModel(
                 searchService: searchService,
                 aiService: aiService
             )
@@ -75,7 +75,7 @@ struct ModularSpotlightView: View {
         }
         
         // 文件加载更多按钮 - 如果是文件模块且已展开且有超过10个结果
-        if section.type == .file && section.isExpanded && (viewModel.cachedFileResults?.count ?? 0) > 10 {
+        if section.type == .file && section.isExpanded && (viewModel.fileResultsCount ?? 0) > 10 {
             loadMoreView
         }
     }
@@ -136,7 +136,7 @@ struct ModularSpotlightView: View {
             }
             
             // 文件模块加载更多按钮
-            if section.type == .file && section.isExpanded && (viewModel.cachedFileResults?.count ?? 0) > 10 {
+            if section.type == .file && section.isExpanded && (viewModel.fileResultsCount ?? 0) > 10 {
                 totalHeight += 40
             }
         }
@@ -189,24 +189,16 @@ struct ModularSpotlightView: View {
 }
 
 // 窗口协调器（原始代码的一部分）
-extension ModuleViewModel {
-    // 为ModuleViewModel添加的扩展，用于访问缓存的文件结果
-    var cachedFileResults: [SearchResult]? {
+extension MainViewModel {
+    // 为MainViewModel添加的扩展，用于访问缓存的文件结果
+    var fileResultsCount: Int? {
         if let fileModule = modules.first(where: { $0.type == .file }) {
             // 如果模块展开，获取文件项（第一个是搜索标题项）
             if fileModule.isExpanded {
                 // 获取实际文件结果
-                let fileItems = fileModule.items.dropFirst()
-                if !fileItems.isEmpty {
-                    return fileItems.compactMap { item in
-                        if let fileItem = item as? FileItem {
-                            return fileItem.searchResult
-                        }
-                        return nil
-                    }
-                }
+                return fileModule.items.dropFirst().count
             }
         }
-        return nil
+        return 0
     }
 } 
