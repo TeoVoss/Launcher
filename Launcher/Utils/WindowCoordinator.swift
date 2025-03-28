@@ -22,12 +22,6 @@ class WindowCoordinator: NSObject {
     /// 基本动画持续时间
     private let animationDuration: TimeInterval = 0.25
     
-    /// 当前视图模式
-    private(set) var currentViewMode: ViewMode = .search
-    
-    /// 上一个活跃的视图模式，用于从特殊模式返回
-    private(set) var lastActiveViewMode: ViewMode = .search
-    
     /// 窗口是否可见
     private var isWindowVisible: Bool {
         return NSApp.windows.first(where: { $0.title == "Launcher" })?.isVisible ?? false
@@ -143,55 +137,5 @@ class WindowCoordinator: NSObject {
     /// 重置窗口到初始高度
     func resetWindowHeight() {
         updateWindowHeight(to: 60, animated: true)
-    }
-    
-    /// 处理视图模式转换
-    func handleModeTransition(to viewMode: ViewMode, customHeight: CGFloat? = nil, withAnimation: Bool = true) {
-        print("处理视图转换：\(viewMode), 自定义高度：\(String(describing: customHeight))")
-        
-        // 避免相同模式下的重复转换
-        guard currentViewMode != viewMode else {
-            // 即使在相同模式下，如果高度变了，也要更新窗口高度
-            if let height = customHeight {
-                updateWindowHeight(to: height, animated: withAnimation)
-            }
-            return
-        }
-        
-        // 计算新模式的初始高度
-        let initialHeight: CGFloat
-        
-        if let customHeight = customHeight {
-            // 使用自定义高度
-            initialHeight = customHeight
-        } else {
-            // 使用模式默认高度
-            initialHeight = LauncherSize.getHeightForMode(viewMode)
-        }
-        
-        // 准备过渡前后的视觉状态
-        let from = currentViewMode
-        let to = viewMode
-        
-        // 记录模式变更前的状态
-        lastActiveViewMode = currentViewMode
-        
-        // 更新当前模式
-        currentViewMode = viewMode
-        
-        // 视图转换优化：根据转换类型选择不同的过渡动画
-        if from == .aiResponse && to == .search {
-            // 从AI对话返回到主界面时的特殊处理
-            // 先设置模式，延迟调整高度，避免闪烁
-            DispatchQueue.main.async {
-                self.updateWindowHeight(to: initialHeight, animated: withAnimation)
-            }
-        } else if from == .search && to == .aiResponse {
-            // 从主界面到AI对话时，先调整高度再切换视图
-            self.updateWindowHeight(to: initialHeight, animated: withAnimation)
-        } else {
-            // 其他模式转换使用标准过渡
-            self.updateWindowHeight(to: initialHeight, animated: withAnimation)
-        }
     }
 } 

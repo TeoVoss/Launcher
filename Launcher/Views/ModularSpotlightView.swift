@@ -4,7 +4,6 @@ import Foundation
 
 struct ModularSpotlightView: View {
     @StateObject private var viewModel: ModuleViewModel
-    @Environment(\.scenePhase) var scenePhase
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var settingsManager: SettingsManager
     
@@ -40,11 +39,6 @@ struct ModularSpotlightView: View {
         }
         .onChange(of: viewModel.fileModuleExpanded) { _ in
             updateHeight()
-        }
-        .onChange(of: scenePhase) { value in
-            if value == .active {
-                viewModel.requestFocus()
-            }
         }
     }
     
@@ -196,11 +190,6 @@ struct ModularSpotlightView: View {
 
 // 窗口协调器（原始代码的一部分）
 extension ModuleViewModel {
-    func requestFocus() {
-        // 通过NotificationCenter发送请求焦点通知
-        
-    }
-    
     // 为ModuleViewModel添加的扩展，用于访问缓存的文件结果
     var cachedFileResults: [SearchResult]? {
         if let fileModule = modules.first(where: { $0.type == .file }) {
