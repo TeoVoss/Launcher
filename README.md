@@ -10,6 +10,7 @@ Launcher是一款macOS平台的智能快捷启动器应用，灵感来源于Spot
 - 响应式UI设计
 - AI集成辅助
 - 状态栏便捷访问
+- 智能计算器（支持公式计算、汇率换算、亲戚关系计算）
 
 ## 架构设计
 
@@ -96,6 +97,22 @@ AIService提供AI辅助功能，主要特性：
 - **AIResponseView**：AI响应界面，支持富文本和代码块显示
 - **SettingsView**：设置界面
 
+### 5. 智能计算器功能
+
+计算器功能是Launcher的一个强大辅助工具，可以直接在搜索界面进行各种计算：
+
+- **基础数学计算**：支持加减乘除、指数、开根及常见数学函数
+- **公式美化显示**：将用户输入转换为标准数学符号（如 * 转为 ×，/ 转为 ÷）
+- **汇率换算**：支持多种国际货币到人民币的实时换算
+- **亲戚关系计算**：支持中国亲戚关系推导，例如"爸爸的妈妈"="奶奶"
+
+计算器功能通过以下组件实现：
+- **CalculatorService**：核心计算逻辑，包括表达式求值、汇率换算和关系推导
+- **CalculatorView**：专门的结果显示界面，支持公式与结果并排显示
+- **CalculatorItem**：对应的数据模型，实现SelectableItem接口
+
+用户可以通过Enter键复制计算结果到剪贴板，方便在其他应用中使用。
+
 ## 项目结构
 
 ```
@@ -111,6 +128,7 @@ Launcher/
 │   ├── AIService.swift      # AI服务
 │   ├── ApplicationSearchService.swift # 应用搜索
 │   ├── BaseSearchService.swift        # 基础搜索
+│   ├── CalculatorService.swift        # 计算器服务
 │   ├── FileSearchService.swift        # 文件搜索
 │   ├── SearchService.swift            # 搜索服务聚合
 │   └── ShortcutSearchService.swift    # 快捷指令搜索
@@ -125,10 +143,11 @@ Launcher/
     ├── AIResponseView.swift # AI响应视图
     ├── MainView.swift       # 主界面
     ├── Modules/             # 模块组件
-    │   ├── ModuleSectionView.swift  # 模块区域视图
-    │   └── SelectableItemView.swift # 可选择项视图
+    │   ├── CalculatorView.swift      # 计算器视图
+    │   ├── ModuleSectionView.swift   # 模块区域视图
+    │   └── SelectableItemView.swift  # 可选择项视图
     ├── SearchBar/           # 搜索栏组件
-    │   └── SearchBarView.swift      # 搜索栏视图
+    │   └── SearchBarView.swift       # 搜索栏视图
     └── SettingsView.swift   # 设置界面
 ```
 

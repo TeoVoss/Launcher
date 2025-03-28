@@ -90,6 +90,20 @@ struct AIResponseItem: SelectableItem {
     var type: ItemType { return .ai }
 }
 
+// 计算器项
+struct CalculatorItem: SelectableItem {
+    let id = UUID()
+    let formula: String
+    let result: String
+    
+    var displayName: String { return formula }
+    var subtitle: String { return result }
+    var iconImage: NSImage {
+        return NSImage(systemSymbolName: "equal.circle.fill", accessibilityDescription: nil) ?? NSImage()
+    }
+    var type: ItemType { return .calculator }
+}
+
 // 模块部分（每个模块的标题和项列表）
 struct ModuleSection {
     let type: ModuleType

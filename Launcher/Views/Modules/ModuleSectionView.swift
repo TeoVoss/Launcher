@@ -49,6 +49,14 @@ struct ModuleSectionView: View {
                 createItemView(fileItem, isSelected: isSelected, isHeader: isHeader, index: index)
             } else if let fileSearchItem = item as? FileSearchItem {
                 createItemView(fileSearchItem, isSelected: isSelected, isHeader: isHeader, index: index)
+            } else if let calcItem = item as? CalculatorItem {
+                calcItem.createView(isSelected: isSelected) {
+                    onSelectItem(SelectableItemIndex(
+                        moduleType: section.type,
+                        itemIndex: index,
+                        isHeader: false
+                    ))
+                }
             }
         }
     }

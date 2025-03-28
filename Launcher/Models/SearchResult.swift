@@ -12,8 +12,10 @@ struct SearchResult: Identifiable, Hashable {
     let subtitle: String
     let lastUsedDate: Date?
     let relevanceScore: Int
+    var calculationResult: String?
+    var formula: String?
     
-    init(id: UUID, name: String, path: String, type: SearchResultType, category: String, icon: NSImage, subtitle: String, lastUsedDate: Date? = nil, relevanceScore: Int = 0) {
+    init(id: UUID, name: String, path: String, type: SearchResultType, category: String, icon: NSImage, subtitle: String, lastUsedDate: Date? = nil, relevanceScore: Int = 0, calculationResult: String? = nil, formula: String? = nil) {
         self.id = id
         self.name = name
         self.path = path
@@ -23,6 +25,8 @@ struct SearchResult: Identifiable, Hashable {
         self.subtitle = subtitle
         self.lastUsedDate = lastUsedDate
         self.relevanceScore = relevanceScore
+        self.calculationResult = calculationResult
+        self.formula = formula
     }
     
     func hash(into hasher: inout Hasher) {

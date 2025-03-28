@@ -14,6 +14,7 @@ class SearchService: ObservableObject {
     private let appSearchService: ApplicationSearchService
     private let shortcutSearchService: ShortcutSearchService
     private let fileSearchService: FileSearchService
+    private let calculatorService = CalculatorService.shared
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -89,6 +90,29 @@ class SearchService: ObservableObject {
     private func combineResults() -> [SearchResult] {
         var allResults = [SearchResult]()
         
+        // 检查是否是计算器表达式，如果是，优先显示计算结果
+        if !searchText.isEmpty, calculatorService.isCalculation(searchText),
+           let calculation = calculatorService.calculate(searchText) {
+            let calcIcon = NSImage(systemSymbolName: "equal.circle.fill", accessibilityDescription: nil) ?? NSImage()
+            
+            let calculatorResult = SearchResult(
+                id: UUID(),
+                name: calculation.formula,
+                path: "",
+                type: .calculator,
+                category: "计算器",
+                icon: calcIcon,
+                subtitle: calculation.result,
+                lastUsedDate: nil,
+                relevanceScore: 100,
+                calculationResult: calculation.result,
+                formula: calculation.formula
+            )
+            
+            // 计算器结果优先显示
+            allResults.append(calculatorResult)
+        }
+        
         // 添加应用搜索结果
         allResults.append(contentsOf: appSearchService.appResults)
         
@@ -98,8 +122,14 @@ class SearchService: ObservableObject {
         return allResults
     }
     
+    // 搜索文本，用于计算器功能
+    private var searchText: String = ""
+    
     // 保持与原有API兼容的搜索方法 - 添加缓存支持
     func search(query: String) {
+        // 保存搜索文本，用于计算器功能
+        self.searchText = query
+        
         // 取消之前的搜索任务
         currentSearchTask?.cancel()
         

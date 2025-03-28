@@ -94,8 +94,27 @@ class MainViewModel: ObservableObject {
         let shouldShowAI = shouldShowAIModule
         let shouldShowApplications = !cachedApplicationResults.isEmpty
         let shouldShowFiles = !searchText.isEmpty
+        let shouldShowCalculator = searchService.searchResults.contains { $0.type == .calculator }
         
         // 只添加需要显示的模块
+        
+        // 计算器模块应该在最前面显示
+        if shouldShowCalculator {
+            let calculatorItems = searchService.searchResults.filter { $0.type == .calculator }.map { result -> CalculatorItem in
+                return CalculatorItem(
+                    formula: result.formula ?? result.name,
+                    result: result.calculationResult ?? result.subtitle
+                )
+            }
+            
+            if !calculatorItems.isEmpty {
+                updatedModules.append(ModuleSection(
+                    type: .calculator,
+                    items: calculatorItems
+                ))
+            }
+        }
+        
         if shouldShowAI {
             var aiItems: [any SelectableItem] = [AIQueryItem(query: searchText)]
             
@@ -311,6 +330,25 @@ class MainViewModel: ObservableObject {
                     if fileIndex >= 0 && fileIndex < _cachedFileResults.count {
                         // 执行文件项的点击
                         searchService.executeResult(_cachedFileResults[fileIndex])
+                    }
+                }
+            }
+            
+        case .calculator:
+            // 获取计算器模块
+            if let calcModule = modules.first(where: { $0.type == .calculator }) {
+                // 确保索引有效
+                if index.itemIndex < calcModule.items.count {
+                    // 获取计算器项
+                    let item = calcModule.items[index.itemIndex]
+                    if let calcItem = item as? CalculatorItem {
+                        // 复制计算结果到剪贴板
+                        let pasteboard = NSPasteboard.general
+                        pasteboard.clearContents()
+                        pasteboard.setString(calcItem.result, forType: .string)
+                        
+                        // 提供反馈
+                        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .default)
                     }
                 }
             }
