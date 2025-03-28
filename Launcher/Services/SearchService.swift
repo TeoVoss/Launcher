@@ -8,8 +8,13 @@ class SearchService: ObservableObject {
     @Published var categories: [SearchResultCategory] = []
     @Published var fileResults: [SearchResult] = []
     @Published var isSearchingFiles: Bool = false
+    @Published var isSearching: Bool = false
     
-    private let searchResultManager: SearchResultManager
+    // 搜索服务
+    private let appSearchService: ApplicationSearchService
+    private let shortcutSearchService: ShortcutSearchService
+    private let fileSearchService: FileSearchService
+    
     private var cancellables = Set<AnyCancellable>()
     
     // 搜索结果缓存 - 提高频繁搜索同一内容的性能
@@ -21,7 +26,9 @@ class SearchService: ObservableObject {
     
     init() {
         // 初始化搜索结果管理器
-        self.searchResultManager = SearchResultManager()
+        self.appSearchService = ApplicationSearchService()
+        self.shortcutSearchService = ShortcutSearchService()
+        self.fileSearchService = FileSearchService()
         
         // 配置缓存
         resultCache.countLimit = 20 // 最多缓存20个查询
@@ -40,19 +47,55 @@ class SearchService: ObservableObject {
     }
     
     private func setupSubscriptions() {
-        // 订阅搜索结果更新
-        searchResultManager.$appResults
+        // 监听应用搜索结果
+        appSearchService.$appResults
             .receive(on: RunLoop.main)
             .sink { [weak self] results in
-                self?.searchResults = results
+                guard let self = self else { return }
+                print("- 应用: \(appSearchService.appResults.count)")
+                self.updateSearchResults()
             }
             .store(in: &cancellables)
-        searchResultManager.$fileResults
+        
+        // 监听快捷指令搜索结果
+        shortcutSearchService.$shortcutResults
+            .receive(on: RunLoop.main)
+            .sink { [weak self] results in
+                guard let self = self else { return }
+                print("- 快捷指令: \(shortcutSearchService.shortcutResults.count)")
+                self.updateSearchResults()
+            }
+            .store(in: &cancellables)
+        
+        fileSearchService.$fileResults
             .receive(on: RunLoop.main)
             .sink { [weak self] results in
                 self?.fileResults = results
             }
             .store(in: &cancellables)
+    }
+    
+    private func updateSearchResults() {
+        // 合并所有结果
+        let allResults = combineResults()
+        
+        // 添加调试日志
+        print("- 合并结果总数: \(allResults.count)")
+        
+        // 更新发布属性
+        searchResults = allResults
+    }
+    
+    private func combineResults() -> [SearchResult] {
+        var allResults = [SearchResult]()
+        
+        // 添加应用搜索结果
+        allResults.append(contentsOf: appSearchService.appResults)
+        
+        // 添加快捷指令搜索结果
+        allResults.append(contentsOf: shortcutSearchService.shortcutResults)
+        
+        return allResults
     }
     
     // 保持与原有API兼容的搜索方法 - 添加缓存支持
@@ -75,12 +118,23 @@ class SearchService: ObservableObject {
             return
         }
         
-        // 创建新的搜索任务
+        isSearching = true
+        
+        // 创建新的并发搜索任务
         currentSearchTask = Task { [weak self] in
             guard let self = self else { return }
             
-            // 执行搜索
-            self.searchResultManager.search(query: query)
+            // 标记搜索开始
+            await MainActor.run {
+                self.isSearching = true
+            }
+            
+            // 检查是否取消
+            if Task.isCancelled { return }
+            
+            // 并发执行不同类型的搜索
+            async let systemAppsResults = self.appSearchService.search(query: query)
+            async let shortcutsResults = self.shortcutSearchService.search(query: query)
             
             // 等待搜索完成
             try? await Task.sleep(nanoseconds: 300_000_000) // 300ms
@@ -90,6 +144,7 @@ class SearchService: ObservableObject {
                 await MainActor.run {
                     // 缓存结果
                     self.resultCache.setObject(self.searchResults as NSArray, forKey: cacheKey)
+                    self.isSearching = false
                 }
             }
         }
@@ -106,8 +161,9 @@ class SearchService: ObservableObject {
                 guard let self = self else { return }
                 self.fileResults = []
                 self.isSearchingFiles = false
+                
             }
-            searchResultManager.clearFileResults()
+            clearFileResults()
             return
         }
         
@@ -123,18 +179,15 @@ class SearchService: ObservableObject {
             return
         }
         
-        // 设置搜索中状态
-        Task { @MainActor [weak self] in
-            guard let self = self else { return }
-            self.isSearchingFiles = true
-        }
+        self.isSearchingFiles = true
         
         // 创建新的文件搜索任务
         currentFileSearchTask = Task { [weak self] in
             guard let self = self else { return }
             
-            // 专门执行文件搜索
-            self.searchResultManager.searchFiles(query: query)
+            await MainActor.run {
+                self.fileSearchService.search(query: query)
+            }
             
             // 等待搜索完成
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1s
@@ -152,15 +205,36 @@ class SearchService: ObservableObject {
     
     // 执行搜索结果的方法 - 与openResult相同
     func executeResult(_ result: SearchResult) {
-        searchResultManager.openResult(result)
+        switch result.type {
+        case .shortcut:
+            // 使用快捷指令服务执行
+            shortcutSearchService.runShortcut(result)
+        default:
+            // 默认使用NSWorkspace打开
+            NSWorkspace.shared.open(URL(fileURLWithPath: result.path))
+        }
     }
     
-    // 保持与原有API兼容的清除结果方法
+    // 清空文件搜索结果
+    func clearFileResults() {
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            self.fileSearchService.clearResults()
+        }
+    }
+    
+    // 清空搜索结果
     func clearResults() {
-        // 取消所有搜索任务
         currentSearchTask?.cancel()
         currentFileSearchTask?.cancel()
-        searchResultManager.clearResults()
+        Task { @MainActor in
+            self.searchResults = []
+            self.categories = []
+            self.isSearching = false
+            appSearchService.clearResults()
+            shortcutSearchService.clearResults()
+            fileSearchService.clearResults()
+        }
     }
     
     // 添加分页搜索文件的方法 - 保持原有功能

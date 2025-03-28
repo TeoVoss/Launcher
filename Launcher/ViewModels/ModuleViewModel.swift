@@ -57,7 +57,7 @@ class ModuleViewModel: ObservableObject {
         // 监听搜索文本变更
         $searchText
             .dropFirst()
-            .debounce(for: .milliseconds(200), scheduler: RunLoop.main)
+            .debounce(for: .milliseconds(250), scheduler: RunLoop.main)
             .removeDuplicates()
             .sink { [weak self] text in
                 guard let self = self else { return }
@@ -169,6 +169,7 @@ class ModuleViewModel: ObservableObject {
         }
         if !isUserSelected {
             self.selectedItemIndex = newIndex
+            print("选中的模块: \(firstModule.type)\(self.selectedItemIndex)")
             return
         }
         // 查找所选模块
