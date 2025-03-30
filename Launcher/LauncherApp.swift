@@ -15,6 +15,8 @@ class AppManager {
     
     private var _settingsManager: SettingsManager?
     
+    @State private var shouldOpenSettings = false
+    
     private init() {}
     
     // 线程安全地获取设置管理器
@@ -58,12 +60,14 @@ struct LauncherApp: App {
 // 专门用于加载设置视图的组件
 struct SettingsViewLoader: View {
     @State private var settingsManager: SettingsManager?
-    @State private var shouldOpenSettings = false
     
     var body: some View {
         Group {
             if let manager = settingsManager {
-                SettingsView(settingsManager: manager)
+                SettingsView(settingsManager: manager).onAppear {
+                    let settingWindow = NSApplication.shared.windows.last
+                    settingWindow?.title = "Settings"
+                }
             } else {
                 ProgressView()
                     .onAppear {
@@ -138,15 +142,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hideWindow()
     }
     
-    // 当设置窗口即将关闭时调用
-    @objc private func closeSettings(_ notification: Notification) {
-        // 检查关闭的是否是设置窗口
-        if let settingsWindow = NSApp.windows.first(where: { $0.identifier?.rawValue == "com.apple.SwiftUI.Settings.window" }) {
-            settingsWindow.close()
-            NSApp.setActivationPolicy(.accessory)
-        }
-    }
-    
     private func setupStatusBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem?.button {
@@ -193,15 +188,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc private func openSettings() {
         if window?.isVisible == true && window?.isKeyWindow == true {
-            NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
             self.isSettingsOpen = true
             
             // 使用SwiftUI Settings打开系统设置
-            let settingsAction = Selector(("_showSettingsWindow:"))
-            if NSApp.responds(to: settingsAction) {
-                NSApp.perform(settingsAction, with: nil)
+            Task { @MainActor in
+                let settingsAction = Selector(("_showSettingsWindow:"))
+                if NSApp.responds(to: settingsAction) {
+                    NSApp.perform(settingsAction, with: nil)
+                }
+                if let settingsWindow = NSApp.windows.first(where: { $0.title == "Settings" }) {
+                    print("openSettings")
+                    NSApp.setActivationPolicy(.regular)
+                    NSApp.activate(ignoringOtherApps: true)
+                    settingsWindow.makeKeyAndOrderFront(nil)
+                }
             }
+            
+        }
+    }
+    
+    // 当设置窗口即将关闭时调用
+    @objc private func closeSettings(_ notification: Notification) {
+        self.isSettingsOpen = false
+        // 检查关闭的是否是设置窗口
+        if let settingsWindow = NSApp.windows.first(where: { $0.title == "Settings" }) {
+            print("closeSettings")
+            NSApp.setActivationPolicy(.accessory)
         }
     }
     

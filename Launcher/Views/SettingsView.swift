@@ -76,13 +76,15 @@ struct SettingsView: View {
             // 处理关闭设置面板的快捷键 Escape 或 Ctrl+W
                 if event.keyCode == 53 || // Escape
                     (event.modifierFlags.contains(.control) && event.charactersIgnoringModifiers?.lowercased() == "w") {
-                    NotificationCenter.default.post(name: Notification.Name("CloseSettingsNotification"), object: nil)
+                    if let settingsWindow = NSApp.windows.first(where: { $0.title == "Settings" }) {
+                        settingsWindow.close()
+                    }
                 }
                 return event
             }
         }
         .onDisappear {
-            NSApp.setActivationPolicy(.accessory)
+//            NSApp.setActivationPolicy(.accessory)
         }
     }
     
