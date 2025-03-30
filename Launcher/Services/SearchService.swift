@@ -10,11 +10,12 @@ class SearchService: ObservableObject {
     @Published var isSearchingFiles: Bool = false
     @Published var isSearching: Bool = false
     
+    
     // 搜索服务
     private let appSearchService: ApplicationSearchService
     private let shortcutSearchService: ShortcutSearchService
     private let fileSearchService: FileSearchService
-    private let calculatorService = CalculatorService.shared
+    private let calculatorService: CalculatorService
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -30,6 +31,7 @@ class SearchService: ObservableObject {
         self.appSearchService = ApplicationSearchService()
         self.shortcutSearchService = ShortcutSearchService()
         self.fileSearchService = FileSearchService()
+        self.calculatorService = CalculatorService()
         
         // 配置缓存
         resultCache.countLimit = 20 // 最多缓存20个查询
@@ -50,6 +52,7 @@ class SearchService: ObservableObject {
     private func setupSubscriptions() {
         // 监听应用搜索结果
         appSearchService.$appResults
+            .dropFirst()
             .receive(on: RunLoop.main)
             .sink { [weak self] results in
                 guard let self = self else { return }
@@ -60,6 +63,7 @@ class SearchService: ObservableObject {
         
         // 监听快捷指令搜索结果
         shortcutSearchService.$shortcutResults
+            .dropFirst()
             .receive(on: RunLoop.main)
             .sink { [weak self] results in
                 guard let self = self else { return }
@@ -69,9 +73,21 @@ class SearchService: ObservableObject {
             .store(in: &cancellables)
         
         fileSearchService.$fileResults
+            .dropFirst()
             .receive(on: RunLoop.main)
             .sink { [weak self] results in
-                self?.fileResults = results
+                guard let self = self else { return }
+                self.fileResults = results
+                print("- 文件: \(fileSearchService.fileResults.count)")
+            }
+            .store(in: &cancellables)
+        
+        calculatorService.$calculatorResult
+            .receive(on: RunLoop.main)
+            .sink { [weak self] result in
+                guard let self = self else { return }
+                print("calculatorResult Change")
+                self.updateSearchResults()
             }
             .store(in: &cancellables)
     }
@@ -90,27 +106,9 @@ class SearchService: ObservableObject {
     private func combineResults() -> [SearchResult] {
         var allResults = [SearchResult]()
         
-        // 检查是否是计算器表达式，如果是，优先显示计算结果
-        if !searchText.isEmpty, calculatorService.isCalculation(searchText),
-           let calculation = calculatorService.calculate(searchText) {
-            let calcIcon = NSImage(systemSymbolName: "equal.circle.fill", accessibilityDescription: nil) ?? NSImage()
-            
-            let calculatorResult = SearchResult(
-                id: UUID(),
-                name: calculation.formula,
-                path: "",
-                type: .calculator,
-                category: "计算器",
-                icon: calcIcon,
-                subtitle: calculation.result,
-                lastUsedDate: nil,
-                relevanceScore: 100,
-                calculationResult: calculation.result,
-                formula: calculation.formula
-            )
-            
+        if !self.calculatorService.calculatorResult.isEmpty {
             // 计算器结果优先显示
-            allResults.append(calculatorResult)
+            allResults.append(contentsOf: calculatorService.calculatorResult)
         }
         
         // 添加应用搜索结果
@@ -122,14 +120,8 @@ class SearchService: ObservableObject {
         return allResults
     }
     
-    // 搜索文本，用于计算器功能
-    private var searchText: String = ""
-    
     // 保持与原有API兼容的搜索方法 - 添加缓存支持
     func search(query: String) {
-        // 保存搜索文本，用于计算器功能
-        self.searchText = query
-        
         // 取消之前的搜索任务
         currentSearchTask?.cancel()
         
@@ -138,11 +130,13 @@ class SearchService: ObservableObject {
             return
         }
         
+        self.calculatorService.calculate(query)
+        
         // 检查缓存
         let cacheKey = NSString(string: "search_\(query)")
         if let cachedResults = resultCache.object(forKey: cacheKey) as? [SearchResult] {
             // 使用缓存的结果
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
                 self?.searchResults = cachedResults
             }
             return
@@ -154,17 +148,12 @@ class SearchService: ObservableObject {
         currentSearchTask = Task { [weak self] in
             guard let self = self else { return }
             
-            // 标记搜索开始
-            await MainActor.run {
-                self.isSearching = true
-            }
-            
             // 检查是否取消
             if Task.isCancelled { return }
             
             // 并发执行不同类型的搜索
-            async let systemAppsResults = self.appSearchService.search(query: query)
-            async let shortcutsResults = self.shortcutSearchService.search(query: query)
+            async let _ = self.appSearchService.search(query: query)
+            async let _ = self.shortcutSearchService.search(query: query)
             
             // 等待搜索完成
             try? await Task.sleep(nanoseconds: 300_000_000) // 300ms
@@ -261,9 +250,10 @@ class SearchService: ObservableObject {
             self.searchResults = []
             self.categories = []
             self.isSearching = false
-            appSearchService.clearResults()
-            shortcutSearchService.clearResults()
-            fileSearchService.clearResults()
+//            appSearchService.clearResults()
+//            shortcutSearchService.clearResults()
+//            fileSearchService.clearResults()
+//            calculatorService.clearResults()
         }
     }
     

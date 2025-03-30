@@ -71,6 +71,18 @@ struct SettingsView: View {
             apiKey = settingsManager.aiSettings.apiKey
             model = settingsManager.aiSettings.model
             themeMode = settingsManager.aiSettings.themeMode
+            NSApp.setActivationPolicy(.regular)
+            NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // 处理关闭设置面板的快捷键 Escape 或 Ctrl+W
+                if event.keyCode == 53 || // Escape
+                    (event.modifierFlags.contains(.control) && event.charactersIgnoringModifiers?.lowercased() == "w") {
+                    NotificationCenter.default.post(name: Notification.Name("CloseSettingsNotification"), object: nil)
+                }
+                return event
+            }
+        }
+        .onDisappear {
+            NSApp.setActivationPolicy(.accessory)
         }
     }
     

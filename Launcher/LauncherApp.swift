@@ -119,7 +119,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // 监听设置窗口打开/关闭通知
             NotificationCenter.default.addObserver(
                 self,
-                selector: #selector(settingsWillOpen),
+                selector: #selector(openSettings),
                 name: Notification.Name("OpenSettingsNotification"),
                 object: nil
             )
@@ -127,7 +127,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // 监听设置窗口关闭通知
             NotificationCenter.default.addObserver(
                 self,
-                selector: #selector(settingsWillClose),
+                selector: #selector(closeSettings),
                 name: NSWindow.willCloseNotification,
                 object: nil
             )
@@ -138,20 +138,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hideWindow()
     }
     
-    // 当设置窗口即将打开时调用
-    @objc private func settingsWillOpen() {
-        // 设置为常规应用模式，显示在Dock和任务栏
-        NSApp.setActivationPolicy(.regular)
-        self.isSettingsOpen = true
-    }
-    
     // 当设置窗口即将关闭时调用
-    @objc private func settingsWillClose(_ notification: Notification) {
+    @objc private func closeSettings(_ notification: Notification) {
         // 检查关闭的是否是设置窗口
-        if let closingWindow = notification.object as? NSWindow,
-           closingWindow.identifier?.rawValue == "com.apple.SwiftUI.Settings.window" {
+        if let settingsWindow = NSApp.windows.first(where: { $0.identifier?.rawValue == "com.apple.SwiftUI.Settings.window" }) {
+            settingsWindow.close()
             NSApp.setActivationPolicy(.accessory)
-            self.isSettingsOpen = false
         }
     }
     
@@ -185,34 +177,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.action = #selector(statusItemClicked)
             button.target = self
         }
-        
-        // 监听快捷键 - 在搜索框可见状态下处理设置快捷键
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return event }
-            
-            // 处理设置快捷键 Command+逗号 (包括中英文逗号)
-            if event.modifierFlags.contains(.command) && 
-               (event.charactersIgnoringModifiers == "," || event.charactersIgnoringModifiers == "，") {
-                if self.window?.isVisible == true && self.window?.isKeyWindow == true {
-                    self.openSettings()
-                    return nil // 已处理
-                }
-            }
-            
-            // 处理关闭设置面板的快捷键 Escape 或 Ctrl+W
-            if self.isSettingsOpen {
-                if event.keyCode == 53 || // Escape
-                   (event.modifierFlags.contains(.control) && event.charactersIgnoringModifiers?.lowercased() == "w") {
-                    if let settingsWindow = NSApp.windows.first(where: { $0.identifier?.rawValue == "com.apple.SwiftUI.Settings.window" }) {
-                        settingsWindow.close()
-                        NSApp.setActivationPolicy(.accessory)
-                        return nil // 已处理
-                    }
-                }
-            }
-            
-            return event
-        }
     }
     
     @objc private func statusItemClicked(sender: NSStatusBarButton) {
@@ -231,9 +195,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if window?.isVisible == true && window?.isKeyWindow == true {
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
-            
-            // 通知设置窗口即将打开
-            NotificationCenter.default.post(name: Notification.Name("OpenSettingsNotification"), object: nil)
+            self.isSettingsOpen = true
             
             // 使用SwiftUI Settings打开系统设置
             let settingsAction = Selector(("_showSettingsWindow:"))
@@ -337,6 +299,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.delegate = delegate
         
         self.window = window
+        WindowCoordinator.shared.setWindow(window)
     }
     
     // 主题变更通知处理
@@ -389,12 +352,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.setContentSize(NSSize(width: 680, height: 60))
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
-            
-            // 设置焦点到搜索框
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                guard let self = self, let spotlightView = self.spotlightView else { return }
-                spotlightView.requestFocus()
-            }
         }
     }
     

@@ -80,7 +80,7 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
         
         // 在后台线程执行耗时操作
         await withCheckedContinuation { continuation in
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
                 guard let self = self else {
                     continuation.resume()
                     return
@@ -106,7 +106,7 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
                     self.isLoadingApps = false
                     
                     // 执行所有等待的完成处理器
-                    DispatchQueue.main.async {
+                    Task { @MainActor in
                         // 手动跟踪应用加载情况
                         print("应用加载完成，共找到 \(self.allApps.count) 个应用")
                         for handler in self.appsLoadCompletionHandlers {
@@ -130,7 +130,9 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
                 }
                 
                 // 设置超时机制
-                DispatchQueue.main.asyncAfter(deadline: .now() + 20.0) {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(20))
+                    if Task.isCancelled {return}
                     if self.isLoadingApps {
                         // 超时后，如果仍在加载，停止查询并调用完成处理器
                         print("应用加载超时")
@@ -317,7 +319,6 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
             return cachedResults
         }
         
-        // 如果应用列表为空，尝试立即加载
         if self.allApps.isEmpty {
             // 如果应用正在加载中，添加完成处理器
             if isLoadingApps {
@@ -326,31 +327,9 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
                 appsLoadCompletionHandlers.append { [weak self] in
                     guard let self = self else { return }
                     let results = self.performSearch(query: searchQueryText)
-                    DispatchQueue.main.async {
-                        self.appResults = results
-                    }
-                }
-            } else {
-                // 如果不在加载中，启动加载过程
-                print("开始加载应用")
-                Task {
-                    await loadAllAppsAsync()
                 }
             }
-            
-            // 为防止应用加载期间没有结果显示，这里可以返回一个临时结果
-            let tempResult = SearchResult(
-                id: UUID(),
-                name: "正在加载应用列表...",
-                path: "",
-                type: .application,
-                category: self.applicationCategory,
-                icon: NSImage(named: NSImage.applicationIconName) ?? NSImage(),
-                subtitle: "请稍候",
-                lastUsedDate: nil,
-                relevanceScore: 100
-            )
-            return [tempResult]
+            return []
         }
         
         // 执行实际搜索
@@ -401,7 +380,7 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
         let sortedApps = BaseSearchService.sortSearchResults(filteredApps)
         
         // 更新可观察的结果属性
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.appResults = sortedApps
         }
         

@@ -5,6 +5,7 @@ import Combine
 class MainViewModel: ObservableObject {
     // 各模块的数据
     @Published var modules: [ModuleSection] = []
+    @Published var modulesItems: [ItemType] = []
     
     // 当前选中项的索引
     @Published var selectedItemIndex: SelectableItemIndex?
@@ -30,9 +31,11 @@ class MainViewModel: ObservableObject {
     // 文件搜索结果分页状态
     @Published var fileResultsPage: Int = 0
     
+    private var currentUpdateTask: Task<Void, Never>? = nil
+    
     // 缓存的搜索结果
-    private var cachedApplicationResults: [SearchResult] = []
-    private var _cachedFileResults: [SearchResult] = []
+    private var displayAppResults: [SearchResult] = []
+    private var displayFileResults: [SearchResult] = []
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -61,7 +64,7 @@ class MainViewModel: ObservableObject {
             .removeDuplicates()
             .sink { [weak self] text in
                 guard let self = self else { return }
-                self.updateSearchResults(for: text)
+                self.requestSearch(for: text)
             }
             .store(in: &cancellables)
         
@@ -87,85 +90,102 @@ class MainViewModel: ObservableObject {
     
     // 更新所有模块展示数据
     func updateModules() {
-        // 获取模块顺序的副本，确保我们使用的是引用类型
-        var updatedModules = [ModuleSection]()
-        
-        // 决定哪些模块应该显示
-        let shouldShowAI = shouldShowAIModule
-        let shouldShowApplications = !cachedApplicationResults.isEmpty
-        let shouldShowFiles = !searchText.isEmpty
-        let shouldShowCalculator = searchService.searchResults.contains { $0.type == .calculator }
-        
-        // 只添加需要显示的模块
-        
-        // 计算器模块应该在最前面显示
-        if shouldShowCalculator {
-            let calculatorItems = searchService.searchResults.filter { $0.type == .calculator }.map { result -> CalculatorItem in
-                return CalculatorItem(
-                    formula: result.formula ?? result.name,
-                    result: result.calculationResult ?? result.subtitle
-                )
+        currentUpdateTask?.cancel()
+        currentUpdateTask = Task { @MainActor [weak self] in
+            guard let self = self else {return}
+            try? await Task.sleep(for: .seconds(0.05))
+            if Task.isCancelled {
+                return
             }
             
-            if !calculatorItems.isEmpty {
-                updatedModules.append(ModuleSection(
-                    type: .calculator,
-                    items: calculatorItems
-                ))
-            }
-        }
-        
-        if shouldShowAI {
-            var aiItems: [any SelectableItem] = [AIQueryItem(query: searchText)]
+            var updatedModules = [ModuleSection]()
             
-            // 如果AI模块展开，添加AI回复项
-            if aiModuleExpanded {
-                // 获取AI响应内容
-                let responseContent = aiService.response
-                if !responseContent.isEmpty || isAILoading {
-                    // 添加AI回复项
-                    aiItems.append(AIResponseItem(content: responseContent))
+            // 决定哪些模块应该显示
+            let shouldShowAI = shouldShowAIModule
+            let shouldShowApplications = !displayAppResults.isEmpty
+            let shouldShowFiles = !searchText.isEmpty
+            let shouldShowCalculator = searchService.searchResults.contains { $0.type == .calculator }
+            
+            // 只添加需要显示的模块
+            
+            // 计算器模块应该在最前面显示
+            if shouldShowCalculator {
+                let calculatorItems = searchService.searchResults.filter { $0.type == .calculator }.map { result -> CalculatorItem in
+                    return CalculatorItem(
+                        formula: result.formula ?? result.name,
+                        result: result.calculationResult ?? result.subtitle
+                    )
+                }
+                
+                if !calculatorItems.isEmpty {
+                    updatedModules.append(ModuleSection(
+                        type: .calculator,
+                        items: calculatorItems
+                    ))
                 }
             }
             
-            updatedModules.append(ModuleSection(
-                type: .ai,
-                items: aiItems,
-                isExpanded: aiModuleExpanded,
-                isLoading: isAILoading
-            ))
-        }
-        
-        if shouldShowApplications {
-            let appItems: [any SelectableItem] = cachedApplicationResults.map { $0.toSelectableItem() }
-            updatedModules.append(ModuleSection(
-                type: .application,
-                items: appItems
-            ))
-        }
-        
-        if shouldShowFiles {
-            var fileItems: [any SelectableItem] = [FileSearchItem(query: searchText)]
-            
-            // 如果文件搜索模块展开，添加文件结果
-            if fileModuleExpanded && !_cachedFileResults.isEmpty {
-                let fileResultItems: [any SelectableItem] = _cachedFileResults.map { $0.toSelectableItem() }
-                fileItems.append(contentsOf: fileResultItems)
+            if shouldShowAI {
+                var aiItems: [any SelectableItem] = [AIQueryItem(query: searchText)]
+                
+                // 如果AI模块展开，添加AI回复项
+                if aiModuleExpanded {
+                    // 获取AI响应内容
+                    let responseContent = aiService.response
+                    if !responseContent.isEmpty || isAILoading {
+                        // 添加AI回复项
+                        aiItems.append(AIResponseItem(content: responseContent))
+                    }
+                }
+                
+                updatedModules.append(ModuleSection(
+                    type: .ai,
+                    items: aiItems,
+                    isExpanded: aiModuleExpanded,
+                    isLoading: isAILoading
+                ))
             }
             
-            updatedModules.append(ModuleSection(
-                type: .file,
-                items: fileItems,
-                isExpanded: fileModuleExpanded,
-                isLoading: isFileSearchLoading
-            ))
+            if shouldShowApplications {
+                let appItems: [any SelectableItem] = displayAppResults.map { $0.toSelectableItem() }
+                updatedModules.append(ModuleSection(
+                    type: .application,
+                    items: appItems
+                ))
+            }
+            
+            if shouldShowFiles {
+                var fileItems: [any SelectableItem] = [FileSearchItem(query: searchText)]
+                
+                // 如果文件搜索模块展开，添加文件结果
+                if fileModuleExpanded && !displayFileResults.isEmpty {
+                    let fileResultItems: [any SelectableItem] = displayFileResults.map { $0.toSelectableItem() }
+                    fileItems.append(contentsOf: fileResultItems)
+                }
+                
+                updatedModules.append(ModuleSection(
+                    type: .file,
+                    items: fileItems,
+                    isExpanded: fileModuleExpanded,
+                    isLoading: isFileSearchLoading
+                ))
+            }
+            
+            // 更新模块列表
+            self.modules = updatedModules
+            
+            var modulesItems = [ItemType]()
+            for section in updatedModules {
+                for item in section.items {
+                    modulesItems.append(item.type)
+                }
+            }
+            
+            self.modulesItems = modulesItems
+            
+            // 如果当前选中的模块不再存在，或者项索引超出范围，重置选择
+            validateSelectedIndex()
         }
-        
-        // 更新模块列表
-        self.modules = updatedModules
-        
-        // 如果当前选中的模块不再存在，或者项索引超出范围，重置选择
-        validateSelectedIndex()
     }
     
     // 验证当前选中的索引是否有效
@@ -327,9 +347,9 @@ class MainViewModel: ObservableObject {
                 if let fileModule = modules.first(where: { $0.type == .file }) {
                     // 确保索引有效（需要减去1，因为第一项是头部）
                     let fileIndex = index.itemIndex - 1
-                    if fileIndex >= 0 && fileIndex < _cachedFileResults.count {
+                    if fileIndex >= 0 && fileIndex < displayFileResults.count {
                         // 执行文件项的点击
-                        searchService.executeResult(_cachedFileResults[fileIndex])
+                        searchService.executeResult(displayFileResults[fileIndex])
                     }
                 }
             }
@@ -498,7 +518,7 @@ class MainViewModel: ObservableObject {
     }
     
     // 更新搜索结果
-    private func updateSearchResults(for text: String) {
+    private func requestSearch(for text: String) {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // 空搜索直接清理
@@ -522,16 +542,16 @@ class MainViewModel: ObservableObject {
     // 处理应用搜索结果更新
     private func handleApplicationResultsUpdated(_ results: [SearchResult]) {
         // 过滤只保留应用类型的结果
-        let appResults = results.filter { $0.type == .application || $0.type == .shortcut }
-        cachedApplicationResults = appResults
+        displayAppResults = results.filter { $0.type == .application || $0.type == .shortcut }
         
         // 更新模块数据
         updateModules()
+        
     }
     
     // 处理文件搜索结果更新
     private func handleFileResultsUpdated(_ results: [SearchResult]) {
-        _cachedFileResults = results
+        displayFileResults = results
         // 明确停止加载状态
         isFileSearchLoading = false
         // 更新模块数据
@@ -544,15 +564,12 @@ class MainViewModel: ObservableObject {
     // 重置搜索状态
     func resetSearch() {
         // 重置所有状态
-        cachedApplicationResults = []
-        _cachedFileResults = []
+        clearSearchText()
         aiModuleExpanded = false
         fileModuleExpanded = false
         selectedItemIndex = nil
         searchService.clearResults()
-        
-        // 更新模块数据
-        updateModules()
+        print("resetSearch")
     }
     
     // 清空搜索文本
@@ -573,7 +590,7 @@ class MainViewModel: ObservableObject {
                 // AI响应发生变化时更新模块数据
                 guard let self = self else { return }
                 if self.aiModuleExpanded {
-                    self.updateModules()
+//                    self.updateModules()
                 }
             }
             .store(in: &cancellables)

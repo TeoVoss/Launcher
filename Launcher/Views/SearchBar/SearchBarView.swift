@@ -141,7 +141,6 @@ struct SearchBarView: View {
                 .debugBorder(.red, width: 0.5)
             }
             .frame(height: searchBarHeight)
-            .padding(.vertical, 4) // 减少垂直内边距，从8减为4，确保整体高度为52
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color(nsColor: .windowBackgroundColor))
@@ -157,7 +156,9 @@ struct SearchBarView: View {
             lastProcessedText = searchText
             
             // 确保获得焦点
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.1))
+                if Task.isCancelled { return }
                 isFocused = true
             }
         }
@@ -183,7 +184,14 @@ struct SearchBarView: View {
             pendingStateUpdate = updateTask
             
             // 延迟执行，允许多个快速输入合并
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.03, execute: updateTask)
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.03))
+                if Task.isCancelled {
+                    updateTask.cancel()
+                    return
+                }
+                updateTask.perform()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("RequestSearchFocus"))) { _ in
             isFocused = true

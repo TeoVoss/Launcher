@@ -24,7 +24,14 @@ class Debouncer {
         workItem = newWorkItem
         
         // 延迟执行
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: newWorkItem)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(delay))
+            if Task.isCancelled {
+                workItem?.cancel()
+                return
+            }
+            workItem?.perform()
+        }
     }
     
     /// 立即执行当前排队的操作（如果有的话）

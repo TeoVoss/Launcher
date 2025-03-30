@@ -10,6 +10,8 @@ class WindowCoordinator: NSObject {
     /// 单例实例
     static let shared = WindowCoordinator()
     
+    private var currentUpdateTask: Task<Void, Never>? = nil
+    
     /// 当前窗口高度
     private(set) var currentHeight: CGFloat = 60
     
@@ -24,16 +26,18 @@ class WindowCoordinator: NSObject {
     
     /// 窗口是否可见
     private var isWindowVisible: Bool {
-        return NSApp.windows.first(where: { $0.title == "Launcher" })?.isVisible ?? false
+        return self.window.isVisible
     }
     
     /// 获取当前主窗口
-    private var window: NSWindow? {
-        return NSApp.windows.first(where: { $0.title == "Launcher" })
-    }
+    private var window: NSWindow = NSWindow()
     
     private override init() {
         super.init()
+    }
+    
+    func setWindow(_ window: NSWindow) {
+        self.window = window
     }
     
     /// 显示主窗口
@@ -63,12 +67,6 @@ class WindowCoordinator: NSObject {
         let oldHeight = currentHeight
         currentHeight = height
         
-        // 更新高度前确保窗口可见
-        if !isWindowVisible {
-//            print("【窗口高度】窗口不可见，正在显示窗口")
-            showWindow()
-        }
-        
         // 使用更高效的命令分组来避免频繁更新
         if abs(oldHeight - height) > 100 {
             // 对于大幅度高度变化，使用更长的延迟，让UI有时间准备
@@ -89,24 +87,26 @@ class WindowCoordinator: NSObject {
             // 使用系统动画函数进行平滑过渡
 //            print("【窗口高度】开始动画更新窗口高度")
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.3  // 稍微延长动画时间
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                context.duration = 0.5  // 稍微延长动画时间
+                context.timingFunction = CAMediaTimingFunction(controlPoints: 0, 1, 0.05, 1)
                 context.allowsImplicitAnimation = true
-                window?.animator().setFrame(frameForHeight(currentHeight), display: false)
+                window.animator().setFrame(frameForHeight(currentHeight), display: true)
             } completionHandler: {
 //                print("【窗口高度】动画完成，新高度: \(self.currentHeight)")
                 // 延迟发送通知，确保UI已经稳定
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(0.12))
+                    if Task.isCancelled { return }
                     NotificationCenter.default.post(name: WindowCoordinatorDidUpdateHeight, object: nil)
                 }
             }
         } else {
             // 立即应用高度变化
 //            print("【窗口高度】立即更新窗口高度: \(currentHeight)")
-            window?.setFrame(frameForHeight(currentHeight), display: true)
-            
-            // 即使没有动画也延迟发送通知
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            window.setFrame(frameForHeight(currentHeight), display: true)
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.08))
+                if Task.isCancelled { return }
                 NotificationCenter.default.post(name: WindowCoordinatorDidUpdateHeight, object: nil)
             }
         }
@@ -114,9 +114,9 @@ class WindowCoordinator: NSObject {
     
     /// 计算指定高度的窗口框架
     private func frameForHeight(_ height: CGFloat) -> NSRect {
-        guard let window = self.window else {
-            return NSRect(x: 0, y: 0, width: 680, height: height)
-        }
+//        guard let window = self.window else {
+//            return NSRect(x: 0, y: 0, width: 680, height: height)
+//        }
         
         var frame = window.frame
         let oldHeight = frame.size.height
@@ -139,3 +139,14 @@ class WindowCoordinator: NSObject {
         updateWindowHeight(to: 60, animated: true)
     }
 } 
+
+extension Animation {
+    static var customEaseOut: Animation {
+        Animation.timingCurve(0.0, 0.0, 0.2, 1.0, duration: 0.3)
+    }
+    
+    // 自定义动画：前80%瞬间完成，后20%为easeOut
+    static var quickThenEaseOut: Animation {
+        Animation.timingCurve(0.8, 0.0, 0.9, 0.5, duration: 0.3)
+    }
+}

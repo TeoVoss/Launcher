@@ -45,7 +45,7 @@ enum SearchResultType {
     case folder
     case document
     case system
-    case calculator
+case calculator
     case suggestion
     case shortcut
     

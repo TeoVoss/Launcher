@@ -55,10 +55,7 @@ class FileSearchService: BaseSearchService, ObservableObject {
     
     // 搜索文件
     func search(query: String) {
-        guard !query.isEmpty else {
-            DispatchQueue.main.async {
-                self.fileResults = []
-            }
+        if query.isEmpty {
             return
         }
         
@@ -139,7 +136,7 @@ class FileSearchService: BaseSearchService, ObservableObject {
         // 对文件进行排序
         let sortedFiles = BaseSearchService.sortSearchResults(files)
         
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self = self else { return }
             self.fileResults = sortedFiles
         }

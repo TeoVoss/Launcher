@@ -19,7 +19,7 @@ class ShortcutSearchService: BaseSearchService, ObservableObject {
     
     override init() {
         super.init()
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.loadShortcuts()
         }
     }
@@ -187,7 +187,6 @@ class ShortcutSearchService: BaseSearchService, ObservableObject {
         
         // 如果快捷指令列表为空，尝试立即加载
         if self.allShortcuts.isEmpty {
-            self.loadShortcuts()
             return []
         }
         
@@ -215,7 +214,7 @@ class ShortcutSearchService: BaseSearchService, ObservableObject {
         let sortedShortcuts = BaseSearchService.sortSearchResults(filteredShortcuts)
         
         // 更新可观察的结果属性
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.shortcutResults = sortedShortcuts
         }
         

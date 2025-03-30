@@ -28,17 +28,21 @@ struct MainView: View {
             // 模块化内容区域
             contentView
         }
-        .frame(width: 680, height: min(700, 60 + calculateContentHeight()))
+        .frame(width: 680)
+        .frame(
+            minHeight: 60,
+            idealHeight: 60 + calculateContentHeight(),
+            maxHeight: 700
+        )
         .background(Color(nsColor: .windowBackgroundColor))
         .cornerRadius(8)
         .onAppear {
             setupKeyboardHandling()
         }
-        .onChange(of: viewModel.aiModuleExpanded) { _ in
+        .onChange(of: viewModel.modulesItems) { _ in
+            // 当模块内容变化时重新计算高度
             updateHeight()
-        }
-        .onChange(of: viewModel.fileModuleExpanded) { _ in
-            updateHeight()
+            print("modulesItems: \(viewModel.modulesItems)")
         }
     }
     
@@ -53,6 +57,7 @@ struct MainView: View {
             .padding(.horizontal, 8)
         }
         .padding(0)
+        .topBorder()
     }
     
     // 单个模块区域视图
@@ -67,7 +72,7 @@ struct MainView: View {
             onExpandHeader: { moduleType in
 //                viewModel.toggleModule(moduleType)
             }
-        )
+        ).padding(.vertical, 4)
         
         // AI响应内容 - 如果是AI模块且已展开，且有AI回复项被选中
         if section.type == .ai && section.isExpanded {
@@ -116,18 +121,18 @@ struct MainView: View {
     private func calculateContentHeight() -> CGFloat {
         var totalHeight: CGFloat = 0
         
-        // 预先为AI模块预留足够的空间，避免展开时的高度突变
-        let aiModuleExists = viewModel.modules.contains { $0.type == .ai }
-        let aiExpanded = viewModel.aiModuleExpanded
-        
         // 遍历所有模块
         for section in viewModel.modules {
             // 标题高度
-            totalHeight += 30
+            totalHeight += 40
+            
+            if section.type == .calculator {
+                totalHeight += 60 // 计算器展开高度
+            }
             
             // 模块项高度
             let itemCount = section.items.count
-            totalHeight += CGFloat(itemCount) * 48 // 每项高度48
+            totalHeight += CGFloat(itemCount) * 42 // 每项高度48
             
             // 特殊模块额外高度
             if section.type == .ai && section.isExpanded {
@@ -139,11 +144,8 @@ struct MainView: View {
             if section.type == .file && section.isExpanded && (viewModel.fileResultsCount ?? 0) > 10 {
                 totalHeight += 40
             }
-        }
-        
-        // 最小内容高度保障
-        if aiModuleExists && aiExpanded {
-            totalHeight = max(totalHeight, 350) // 确保AI展开时有足够空间
+            totalHeight = max(100, totalHeight) // 暂时没有定位到为什么只有一项的时候，高度不够的原因，先增加一个最低高度
+            print("计算过程：\(section.type),\(totalHeight)")
         }
         
         return totalHeight
@@ -168,6 +170,12 @@ struct MainView: View {
                 }
             )
             
+            // 处理设置快捷键 Command+逗号 (包括中英文逗号)
+            if event.modifierFlags.contains(.command) &&
+               (event.charactersIgnoringModifiers == "," || event.charactersIgnoringModifiers == "，") {
+                requestOpenSettings()
+            }
+            
             return handled ? nil : event
         }
     }
@@ -175,16 +183,22 @@ struct MainView: View {
     // 更新高度
     private func updateHeight() {
         let newHeight = calculateContentHeight()
-        print("计算新高度: \(newHeight)")
+        let targetHeight = min(60 + newHeight, 700)
+        print("计算新高度: \(targetHeight)")
+        
         // 优化窗口高度更新机制，使用更平滑的动画
-        DispatchQueue.main.async {
-            WindowCoordinator.shared.updateWindowHeight(to: 60 + newHeight, animated: true)
+        Task { @MainActor in
+            WindowCoordinator.shared.updateWindowHeight(to: targetHeight, animated: true)
         }
     }
     
     // 添加requestFocus方法
     func requestFocus() {
         NotificationCenter.default.post(name: Notification.Name("RequestSearchFocus"), object: nil)
+    }
+    
+    func requestOpenSettings() {
+        NotificationCenter.default.post(name: Notification.Name("OpenSettingsNotification"), object: nil)
     }
 }
 
@@ -202,3 +216,22 @@ extension MainViewModel {
         return 0
     }
 } 
+
+extension View {
+    func bottomBorder(height: CGFloat = 0.5, color: Color = Color.gray.opacity(0.3)) -> some View {
+        self.overlay(
+            Rectangle()
+                .frame(height: height)
+                .foregroundColor(color),
+            alignment: .bottom
+        )
+    }
+    func topBorder(height: CGFloat = 0.5, color: Color = Color.gray.opacity(0.3)) -> some View {
+        self.overlay(
+            Rectangle()
+                .frame(height: height)
+                .foregroundColor(color),
+            alignment: .top
+        )
+    }
+}

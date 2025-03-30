@@ -13,7 +13,7 @@ struct ModuleSectionView: View {
             Text(section.title)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
-                .padding(.vertical, 4)
+                .padding(.bottom, 4)
                 .padding(.horizontal, 8)
             
             // 模块项

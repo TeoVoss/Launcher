@@ -78,8 +78,8 @@ class AIService: ObservableObject {
         session?.invalidateAndCancel()
         session = nil
         
-        // 修复警告：使用DispatchQueue避免在视图更新周期内直接修改@Published属性
-        DispatchQueue.main.async {
+        // 修复警告：使用Task避免在视图更新周期内直接修改@Published属性
+        Task { @MainActor in
             self.isStreaming = false
             self.isGenerating = false
             self.buffer = ""

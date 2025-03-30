@@ -27,7 +27,11 @@ final class SearchServiceTests: XCTestCase {
         
         // 等待异步搜索完成
         let expectation = XCTestExpectation(description: "Search completion")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.5))
+            if Task.isCancelled {
+                return
+            }
             XCTAssertFalse(self.searchService.searchResults.isEmpty)
             let calculatorResults = self.searchService.searchResults.filter { $0.type == .calculator }
             XCTAssertEqual(calculatorResults.count, 1)
@@ -43,7 +47,11 @@ final class SearchServiceTests: XCTestCase {
         
         // 等待异步搜索完成
         let expectation = XCTestExpectation(description: "Search completion")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.5))
+            if Task.isCancelled {
+                return
+            }
             let appResults = self.searchService.searchResults.filter { $0.type == .application }
             XCTAssertFalse(appResults.isEmpty)
             XCTAssertTrue(appResults.contains { $0.name.lowercased().contains("safari") })
