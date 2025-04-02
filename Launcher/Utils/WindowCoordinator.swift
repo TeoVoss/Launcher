@@ -71,11 +71,11 @@ class WindowCoordinator: NSObject {
         if abs(oldHeight - height) > 100 {
             // 对于大幅度高度变化，使用更长的延迟，让UI有时间准备
             let animatedValue = NSNumber(value: animated)
-            self.perform(#selector(applyDelayedHeightChange), with: animatedValue, afterDelay: 0.08)
+            self.perform(#selector(applyDelayedHeightChange), with: animatedValue, afterDelay: 0.03)
         } else {
             // 小幅度变化使用标准延迟
             let animatedValue = NSNumber(value: animated)
-            self.perform(#selector(applyDelayedHeightChange), with: animatedValue, afterDelay: 0.05)
+            self.perform(#selector(applyDelayedHeightChange), with: animatedValue, afterDelay: 0.01)
         }
     }
     
@@ -87,7 +87,7 @@ class WindowCoordinator: NSObject {
             // 使用系统动画函数进行平滑过渡
 //            print("【窗口高度】开始动画更新窗口高度")
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.5  // 稍微延长动画时间
+                context.duration = 0.2  // 稍微延长动画时间
                 context.timingFunction = CAMediaTimingFunction(controlPoints: 0, 1, 0.05, 1)
                 context.allowsImplicitAnimation = true
                 window.animator().setFrame(frameForHeight(currentHeight), display: true)
@@ -105,7 +105,7 @@ class WindowCoordinator: NSObject {
 //            print("【窗口高度】立即更新窗口高度: \(currentHeight)")
             window.setFrame(frameForHeight(currentHeight), display: true)
             Task { @MainActor in
-                try? await Task.sleep(for: .seconds(0.08))
+                try? await Task.sleep(for: .seconds(0.03))
                 if Task.isCancelled { return }
                 NotificationCenter.default.post(name: WindowCoordinatorDidUpdateHeight, object: nil)
             }

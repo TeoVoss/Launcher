@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 // String扩展
 extension String {
@@ -31,6 +32,7 @@ class AIService: ObservableObject {
     private var buffer = ""
     private var session: URLSession?
     private var dataTask: URLSessionDataTask?
+    private var cancellables = Set<AnyCancellable>()
     
     // 将settingsManager作为依赖注入
     private var settingsManager: SettingsManager?
@@ -43,6 +45,7 @@ class AIService: ObservableObject {
         Task { @MainActor in
             self.settingsManager = SettingsManager()
             self.updateSettings()
+            setupSubscriptions()
         }
     }
     
@@ -50,6 +53,19 @@ class AIService: ObservableObject {
     init(settingsManager: SettingsManager) {
         self.settingsManager = settingsManager
         self.updateSettings()
+    }
+    
+    @MainActor
+    private func setupSubscriptions() {
+        // 订阅整个aiSettings对象的变化
+        self.settingsManager?.$aiSettings
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                self.updateSettings()
+            }
+            .store(in: &cancellables)
     }
     
     @MainActor
@@ -333,4 +349,4 @@ class StreamDelegate: NSObject, URLSessionDataDelegate {
                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         completionHandler(.useCredential, URLCredential(trust: challenge.protectionSpace.serverTrust!))
     }
-} 
+}

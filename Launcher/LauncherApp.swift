@@ -336,8 +336,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func setupHotKey() {
-        // 设置 Command + control + 1 快捷键
-        hotKey = HotKey(key: .one, modifiers: [.command, .control])
+        // 设置 Command + J 快捷键
+        hotKey = HotKey(key: .j, modifiers: [.command])
         
         hotKey?.keyDownHandler = { [weak self] in
             self?.toggleWindow()

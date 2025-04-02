@@ -60,7 +60,7 @@ class MainViewModel: ObservableObject {
         // 监听搜索文本变更
         $searchText
             .dropFirst()
-            .debounce(for: .milliseconds(250), scheduler: RunLoop.main)
+            .debounce(for: .milliseconds(100), scheduler: RunLoop.main)
             .removeDuplicates()
             .sink { [weak self] text in
                 guard let self = self else { return }
