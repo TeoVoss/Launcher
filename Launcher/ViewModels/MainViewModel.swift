@@ -23,8 +23,11 @@ class MainViewModel: ObservableObject {
     
     // 各模块加载状态
     @Published var isAILoading: Bool = false
-    @Published var isFileSearchLoading: Bool = false
     
+    // 判断是否应该显示AI模块
+    private var shouldShowAIModule: Bool {
+        return searchText.count >= 3
+    }
     // AI模块的prompt
     @Published var aiPrompt: String = ""
     
@@ -103,7 +106,7 @@ class MainViewModel: ObservableObject {
             // 决定哪些模块应该显示
             let shouldShowAI = shouldShowAIModule
             let shouldShowApplications = !displayAppResults.isEmpty
-            let shouldShowFiles = !searchText.isEmpty
+            let shouldShowFiles = !searchText.isEmpty && !aiModuleExpanded
             let shouldShowCalculator = searchService.searchResults.contains { $0.type == .calculator }
             
             // 只添加需要显示的模块
@@ -167,7 +170,7 @@ class MainViewModel: ObservableObject {
                     type: .file,
                     items: fileItems,
                     isExpanded: fileModuleExpanded,
-                    isLoading: isFileSearchLoading
+                    isLoading: self.searchService.isSearchingFiles
                 ))
             }
             
@@ -208,7 +211,6 @@ class MainViewModel: ObservableObject {
         }
         if !isUserSelected {
             self.selectedItemIndex = newIndex
-            print("选中的模块: \(firstModule.type)\(self.selectedItemIndex)")
             return
         }
         // 查找所选模块
@@ -226,58 +228,43 @@ class MainViewModel: ObservableObject {
             self.selectedItemIndex = newIndex
             isUserSelected = false
         }
-        print("选中的模块: \(firstModule.type)\(self.selectedItemIndex)")
-    }
-    
-    // 切换模块的展开/折叠状态
-    func toggleModule(_ moduleType: ModuleType) {
-        switch moduleType {
-        case .ai:
-            toggleAIModule()
-        case .file:
-            toggleFileModule()
-        default:
-            break
-        }
     }
     
     // 切换AI模块展开状态
     func toggleAIModule() {
-        if !aiModuleExpanded && !searchText.isEmpty {
+        if searchText.isEmpty { return }
+        if !aiModuleExpanded {
             // 首次展开，保存当前查询
             aiPrompt = searchText
             sendAIRequest()
-        }
-        
-        withAnimation {
             aiModuleExpanded.toggle()
-            
-            if !aiModuleExpanded {
-                // 折叠时取消请求
-                aiService.cancelRequests()
-                isAILoading = false
-            }
+        } else if !aiPrompt.isEqual(searchText) {
+            aiPrompt = searchText
+            sendAIRequest()
+        } else {
+            aiModuleExpanded.toggle()
+            aiService.cancelRequests()
+            isAILoading = false
         }
-        
         // 更新模块数据
         updateModules()
     }
     
     // 切换文件模块展开状态
     func toggleFileModule() {
-        // 先设置展开状态
         fileModuleExpanded.toggle()
         
         if fileModuleExpanded {
             // 展开文件搜索时，开始执行搜索
-            isFileSearchLoading = true
+//            isSearchingFiles = true
             Task {
                 // 确保文件搜索结果被加载并显示
                 await MainActor.run {
                     searchService.searchFiles(query: searchText)
                 }
-                
             }
+        } else {
+//            isSearchingFiles = false
         }
         
         // 更新模块数据
@@ -291,7 +278,7 @@ class MainViewModel: ObservableObject {
         isAILoading = true
         
         Task {
-            await aiService.sendRequest(prompt: aiPrompt.trimmingCharacters(in: .whitespacesAndNewlines))
+            await aiService.sendRequest(prompt: aiPrompt)
             await MainActor.run {
                 isAILoading = false
             }
@@ -301,7 +288,6 @@ class MainViewModel: ObservableObject {
     // 加载更多文件结果
     func loadMoreFileResults() {
         fileResultsPage += 1
-        isFileSearchLoading = true
         Task {
             await searchService.searchMoreFiles(query: searchText, page: fileResultsPage)
         }
@@ -513,7 +499,7 @@ class MainViewModel: ObservableObject {
             selectedItemIndex = nil
         } else {
             // 退出应用
-            NSApp.hide(nil)
+//            NSApp.hide(nil)
         }
     }
     
@@ -533,7 +519,7 @@ class MainViewModel: ObservableObject {
             
             // 如果文件模块已展开，执行文件搜索
             if fileModuleExpanded {
-                isFileSearchLoading = true
+//                isSearchingFiles = true
                 searchService.searchFiles(query: trimmedText)
             }
         }
@@ -553,7 +539,7 @@ class MainViewModel: ObservableObject {
     private func handleFileResultsUpdated(_ results: [SearchResult]) {
         displayFileResults = results
         // 明确停止加载状态
-        isFileSearchLoading = false
+//        isSearchingFiles = false
         // 更新模块数据
         updateModules()
         
@@ -577,11 +563,6 @@ class MainViewModel: ObservableObject {
         searchText = ""
     }
     
-    // 判断是否应该显示AI模块
-    var shouldShowAIModule: Bool {
-        return searchText.count >= 3
-    }
-    
     // 监听AI响应变化以更新模块
     func setupAIResponseListener() {
         // 监听AI响应变化
@@ -590,7 +571,7 @@ class MainViewModel: ObservableObject {
                 // AI响应发生变化时更新模块数据
                 guard let self = self else { return }
                 if self.aiModuleExpanded {
-//                    self.updateModules()
+                    self.updateModules()
                 }
             }
             .store(in: &cancellables)

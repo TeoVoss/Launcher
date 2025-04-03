@@ -34,7 +34,7 @@ enum ModuleType: Int, CaseIterable {
 struct AIQueryItem: SelectableItem {
     let id = UUID()
     let query: String
-    var displayName: String { return "问：\(query)" }
+    var displayName: String { return "问 AI：\(query)" }
     var subtitle: String { return "" }
     var iconImage: NSImage { 
         return NSImage(systemSymbolName: "brain.fill", accessibilityDescription: nil) ?? NSImage() 
@@ -58,7 +58,7 @@ struct ApplicationItem: SelectableItem {
 struct FileSearchItem: SelectableItem {
     let id = UUID()
     let query: String
-    var displayName: String { return "搜索：\(query)" }
+    var displayName: String { return "搜索 \(query) 相关的文件" }
     var subtitle: String { return "" }
     var iconImage: NSImage { 
         return NSImage(systemSymbolName: "magnifyingglass.circle.fill", accessibilityDescription: nil) ?? NSImage() 

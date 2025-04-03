@@ -31,7 +31,6 @@ struct MainView: View {
         .frame(width: 680)
         .frame(
             minHeight: 60,
-            idealHeight: 60 + calculateContentHeight(),
             maxHeight: 700
         )
         .background(Color(nsColor: .windowBackgroundColor))
@@ -42,7 +41,7 @@ struct MainView: View {
         .onChange(of: viewModel.modulesItems) { _ in
             // 当模块内容变化时重新计算高度
             updateHeight()
-            print("modulesItems: \(viewModel.modulesItems)")
+//            print("modulesItems: \(viewModel.modulesItems)")
         }
     }
     
@@ -137,7 +136,7 @@ struct MainView: View {
             // 特殊模块额外高度
             if section.type == .ai && section.isExpanded {
                 // 对AI模块预留更多空间，避免展开时的跳动
-                totalHeight += 250 // AI展开高度
+                totalHeight += 700 // AI展开高度
             }
             
             // 文件模块加载更多按钮
@@ -145,7 +144,7 @@ struct MainView: View {
                 totalHeight += 40
             }
             totalHeight = max(100, totalHeight) // 暂时没有定位到为什么只有一项的时候，高度不够的原因，先增加一个最低高度
-            print("计算过程：\(section.type),\(totalHeight)")
+//            print("计算过程：\(section.type),\(totalHeight)") TODO 键盘导航时也会 updateheight 的问题
         }
         
         return totalHeight

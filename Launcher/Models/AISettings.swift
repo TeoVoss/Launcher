@@ -41,7 +41,6 @@ class SettingsManager: ObservableObject {
     func saveSettings() {
         if let data = try? JSONEncoder().encode(aiSettings) {
             UserDefaults.standard.set(data, forKey: aiSettingsKey)
-            print(self.aiSettings)
         }
     }
     

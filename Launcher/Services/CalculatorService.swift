@@ -10,6 +10,8 @@ class CalculatorService: ObservableObject {
     
     private var hasOperator: Bool = false
     
+    private var hasNumber: Bool = false
+    
     private var cancellables = Set<AnyCancellable>()
     
     // JavaScript引擎，用于表达式求值
@@ -158,7 +160,9 @@ class CalculatorService: ObservableObject {
             return true
         }
         
-        return hasOperator
+        hasNumber = trimmed.contains("0-9")
+        
+        return hasOperator && hasNumber
     }
     
     // 计算表达式结果
@@ -196,7 +200,7 @@ class CalculatorService: ObservableObject {
         let beautifiedFormula = beautifyFormula(input)
         
         // 准备JavaScript可以执行的表达式
-        var jsExpression = beautifiedFormula
+        let jsExpression = beautifiedFormula
             .replacingOccurrences(of: "×", with: "*")
             .replacingOccurrences(of: "÷", with: "/")
             .replacingOccurrences(of: "^", with: "**")

@@ -108,7 +108,6 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
                     // 执行所有等待的完成处理器
                     Task { @MainActor in
                         // 手动跟踪应用加载情况
-                        print("应用加载完成，共找到 \(self.allApps.count) 个应用")
                         for handler in self.appsLoadCompletionHandlers {
                             handler()
                         }
@@ -316,6 +315,10 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
         
         // 检查缓存
         if let cachedResults = lastQueryResults[cacheKey] {
+            // 更新可观察的结果属性
+            Task { @MainActor in
+                self.appResults = cachedResults
+            }
             return cachedResults
         }
         
@@ -335,6 +338,8 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
         // 执行实际搜索
         let results = performSearch(query: searchQueryText)
         
+        if results.count <= 0 { return results }
+        
         // 缓存结果
         lastQueryResults[cacheKey] = results
         
@@ -348,6 +353,7 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
         
         // 调试信息
         print("应用搜索完成，找到 \(results.count) 个结果")
+        print("存入缓存 cachedKey \(cacheKey) : \(lastQueryResults[cacheKey])")
         
         return results
     }

@@ -1,0 +1,303 @@
+import Foundation
+import AppKit
+import Combine
+
+// MARK: - 核心实现
+class ApplicationSearchService: BaseSearchService, ObservableObject {
+    @Published private(set) var appResults: [SearchResult] = []
+    
+    // MARK: - 配置
+    private struct Constants {
+        static let systemAppDirectories = [
+            "/Applications",
+            "/System/Applications",
+            "/System/Library/CoreServices/Finder.app",
+            "/System/Library/CoreServices/System Preferences.app",
+            "/System/Library/CoreServices/System Settings.app"
+        ]
+        static let applicationCategory = "应用程序"
+        static let excludedApps = ["Launcher"]
+        static let maxCacheSize = 20
+        static let appLoadTimeout: TimeInterval = 20
+    }
+    
+    // MARK: - 状态管理
+    private var allApps: [AppInfo] = []
+    private var metadataQuery: NSMetadataQuery?
+    private var isLoadingApps = false
+    private var lastQueryResults: [String: [SearchResult]] = [:]
+    private let operationQueue = DispatchQueue(label: "com.appsearch.operations", qos: .userInitiated)
+    private let cacheLock = NSLock()
+    
+    // MARK: - 生命周期
+    override init() {
+        super.init()
+        loadAllAppsAsync()
+    }
+    
+    deinit {
+        cleanup()
+    }
+    
+    func cleanup() {
+        operationQueue.sync {
+            metadataQuery?.stop()
+            NotificationCenter.default.removeObserver(self)
+            metadataQuery = nil
+        }
+    }
+    
+    // MARK: - 公共接口
+    func search(query: String) -> [SearchResult] {
+        guard !query.isEmpty else {
+            clearResults()
+            return []
+        }
+        
+        let searchQueryText = query.lowercased()
+        var results: [SearchResult] = []
+        
+        operationQueue.sync {
+            if let cached = getCachedResults(for: searchQueryText) {
+                results = cached
+                return
+            }
+            
+            guard !allApps.isEmpty else {
+                if isLoadingApps {
+                    deferLoadSearch(query: searchQueryText)
+                }
+                return
+            }
+            
+            results = performSearch(query: searchQueryText)
+            cacheResults(results, for: searchQueryText)
+        }
+        
+        DispatchQueue.main.async {
+            self.appResults = results
+        }
+        
+        return results
+    }
+    
+    func clearResults() {
+        operationQueue.sync {
+            appResults = []
+        }
+    }
+}
+
+// MARK: - 核心功能实现
+private extension ApplicationSearchService {
+    // MARK: 应用加载
+    func loadAllAppsAsync() {
+        guard !isLoadingApps else { return }
+        
+        isLoadingApps = true
+        
+        operationQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            self.setupMetadataQuery()
+            guard let query = self.metadataQuery else {
+                self.isLoadingApps = false
+                return
+            }
+            
+            let predicate = NSPredicate(format: "kMDItemContentType = 'com.apple.application-bundle'")
+            query.predicate = predicate
+            
+            let observer = NotificationCenter.default.addObserver(
+                forName: .NSMetadataQueryDidFinishGathering,
+                object: query,
+                queue: nil
+            ) { [weak self] notification in
+                self?.handleAppLoad(notification: notification)
+            }
+            
+            // 设置超时
+            DispatchQueue.global().asyncAfter(deadline: .now() + Constants.appLoadTimeout) { [weak self] in
+                guard let self = self, self.isLoadingApps else { return }
+                print("应用加载超时")
+                self.cleanup()
+                self.isLoadingApps = false
+            }
+            
+            query.start()
+        }
+    }
+    
+    func handleAppLoad(notification: Notification) {
+        guard let query = notification.object as? NSMetadataQuery else { return }
+        
+        operationQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            query.disableUpdates()
+            defer {
+                query.enableUpdates()
+                self.isLoadingApps = false
+            }
+            
+            var loadedApps: [AppInfo] = []
+            
+            for case let item as NSMetadataItem in query.results {
+                guard let path = item.value(forAttribute: kMDItemPath as String) as? String,
+                      self.isSystemApp(path: path) else { continue }
+                
+                if let appInfo = self.createAppInfo(from: item, path: path) {
+                    loadedApps.append(appInfo)
+                }
+            }
+            
+            self.allApps = loadedApps
+            print("加载完成，共找到 \(loadedApps.count) 个应用")
+        }
+    }
+    
+    // MARK: 搜索实现
+    func performSearch(query: String) -> [SearchResult] {
+        return allApps
+            .lazy
+            .filter { self.appMatchesQuery(app: $0, query: query) }
+            .map { self.createSearchResult(from: $0, query: query) }
+            .sorted { $0.relevanceScore > $1.relevanceScore }
+    }
+    
+    func appMatchesQuery(app: AppInfo, query: String) -> Bool {
+        let names = [app.name] + app.localizedNames
+        return names.contains { BaseSearchService.nameMatchesQuery(name: $0, query: query) }
+    }
+    
+    func calculateRelevanceScore(app: AppInfo, query: String) -> Int {
+        let scores = [app.name] + app.localizedNames
+            .map { BaseSearchService.calculateRelevanceScore(name: $0, query: query) }
+        return scores.max() ?? 0
+    }
+    
+    // MARK: 缓存管理
+    func cacheResults(_ results: [SearchResult], for query: String) {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        
+        lastQueryResults[query] = results
+        
+        if lastQueryResults.count > Constants.maxCacheSize {
+            let keysToRemove = Array(lastQueryResults.keys.prefix(lastQueryResults.count - Constants.maxCacheSize))
+            keysToRemove.forEach { lastQueryResults.removeValue(forKey: $0) }
+        }
+    }
+    
+    func getCachedResults(for query: String) -> [SearchResult]? {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        return lastQueryResults[query]
+    }
+    
+    // MARK: 辅助方法
+    func setupMetadataQuery() {
+        let query = NSMetadataQuery()
+        query.searchScopes = [NSMetadataQueryLocalComputerScope, NSMetadataQueryUserHomeScope]
+        query.valueListAttributes = [
+            kMDItemDisplayName, kMDItemPath, kMDItemContentType, kMDItemLastUsedDate
+        ].map { $0 as String }
+        query.sortDescriptors = [NSSortDescriptor(key: kMDItemLastUsedDate as String, ascending: false)]
+        metadataQuery = query
+    }
+    
+    func isSystemApp(path: String) -> Bool {
+        Constants.systemAppDirectories.contains { path.hasPrefix($0) }
+    }
+    
+    func createAppInfo(from item: NSMetadataItem, path: String) -> AppInfo? {
+        guard let displayName = item.value(forAttribute: kMDItemDisplayName as String) as? String,
+              !Constants.excludedApps.contains(where: { displayName.contains($0) }) else {
+            return nil
+        }
+        
+        let cleanName = displayName.replacingOccurrences(of: ".app", with: "")
+        let icon = NSWorkspace.shared.icon(forFile: path)
+        let lastUsedDate = item.value(forAttribute: kMDItemLastUsedDate as String) as? Date
+        let bundleID = Bundle(path: path)?.bundleIdentifier
+        let localizedNames = getLocalizedAppNames(forPath: path)
+        
+        return AppInfo(
+            name: cleanName,
+            localizedNames: localizedNames,
+            path: path,
+            bundleID: bundleID,
+            icon: icon,
+            lastUsedDate: lastUsedDate
+        )
+    }
+    
+    func createSearchResult(from app: AppInfo, query: String) -> SearchResult {
+        SearchResult(
+            id: UUID(),
+            name: app.name,
+            path: app.path,
+            type: .application,
+            category: Constants.applicationCategory,
+            icon: app.icon,
+            subtitle: "",
+            lastUsedDate: app.lastUsedDate,
+            relevanceScore: calculateRelevanceScore(app: app, query: query)
+        )
+    }
+    
+    func deferLoadSearch(query: String) {
+        let handler = { [weak self] in
+            self?.operationQueue.async {
+                let results = self?.performSearch(query: query) ?? []
+                self?.cacheResults(results, for: query)
+                DispatchQueue.main.async {
+                    self?.appResults = results
+                }
+            }
+        }
+        
+        operationQueue.async {
+            self.appsLoadCompletionHandlers.append(handler)
+        }
+    }
+    
+    func getLocalizedAppNames(forPath path: String) -> [String] {
+        guard let bundle = Bundle(path: path) else { return [] }
+        
+        var names: [String] = []
+        
+        // 从本地化和主Info.plist中获取名称
+        let sources = [bundle.localizedInfoDictionary, bundle.infoDictionary]
+        for source in sources {
+            if let name = source?["CFBundleDisplayName"] as? String ?? source?["CFBundleName"] as? String {
+                names.append(name)
+            }
+        }
+        
+        // 从lproj文件中获取多语言名称
+        if let lprojPaths = try? FileManager.default.contentsOfDirectory(
+            at: URL(fileURLWithPath: bundle.bundlePath),
+            includingPropertiesForKeys: nil
+        ) {
+            for path in lprojPaths where path.pathExtension.hasSuffix("lproj") {
+                let stringsPath = path.appendingPathComponent("InfoPlist.strings")
+                if let strings = NSDictionary(contentsOf: stringsPath) {
+                    if let name = strings["CFBundleDisplayName"] as? String ?? strings["CFBundleName"] as? String {
+                        names.append(name)
+                    }
+                }
+            }
+        }
+        
+        return names.unique()
+    }
+}
+
+// MARK: - 辅助扩展
+private extension Array where Element: Hashable {
+    func unique() -> [Element] {
+        var seen = Set<Element>()
+        return filter { seen.insert($0).inserted }
+    }
+}

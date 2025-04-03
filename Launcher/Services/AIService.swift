@@ -45,7 +45,6 @@ class AIService: ObservableObject {
         Task { @MainActor in
             self.settingsManager = SettingsManager()
             self.updateSettings()
-            setupSubscriptions()
         }
     }
     
@@ -53,6 +52,7 @@ class AIService: ObservableObject {
     init(settingsManager: SettingsManager) {
         self.settingsManager = settingsManager
         self.updateSettings()
+        setupSubscriptions()
     }
     
     @MainActor
@@ -68,12 +68,13 @@ class AIService: ObservableObject {
             .store(in: &cancellables)
     }
     
-    @MainActor
     private func updateSettings() {
         if let manager = settingsManager {
             self.endpoint = manager.aiSettings.endpoint
             self.apiKey = manager.aiSettings.apiKey
             self.model = manager.aiSettings.model
+            
+            print("model changed: \(self.model)")
         }
     }
     
@@ -134,6 +135,7 @@ class AIService: ObservableObject {
             activeResponseIndex = nil
             return
         }
+        print(currentModel)
         
         var messages: [[String: Any]] = [
             [
