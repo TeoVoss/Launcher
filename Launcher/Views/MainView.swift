@@ -38,10 +38,9 @@ struct MainView: View {
         .onAppear {
             setupKeyboardHandling()
         }
-        .onChange(of: viewModel.modulesItems) { _ in
+        .onChange(of: viewModel.modulesItems) { _, _ in
             // 当模块内容变化时重新计算高度
             updateHeight()
-//            print("modulesItems: \(viewModel.modulesItems)")
         }
     }
     
@@ -54,8 +53,8 @@ struct MainView: View {
                 }
             }
             .padding(.horizontal, 8)
+            .padding(.vertical, 8)
         }
-        .padding(0)
         .topBorder()
     }
     
@@ -71,7 +70,7 @@ struct MainView: View {
             onExpandHeader: { moduleType in
 //                viewModel.toggleModule(moduleType)
             }
-        ).padding(.vertical, 4)
+        )
         
         // AI响应内容 - 如果是AI模块且已展开，且有AI回复项被选中
         if section.type == .ai && section.isExpanded {
@@ -102,7 +101,9 @@ struct MainView: View {
                     viewModel.toggleAIModule()
                 }
             },
-            onHeightChange: { _ in }
+            onHeightChange: { value in
+                updateHeight(exHeight: value)
+            }
         )
         .padding(.top, 4)
         .transition(.opacity)
@@ -117,26 +118,27 @@ struct MainView: View {
     }
     
     // 计算内容总高度
-    private func calculateContentHeight() -> CGFloat {
+    private func calculateContentHeight(exHeight: CGFloat = 0) -> CGFloat {
         var totalHeight: CGFloat = 0
+        
+        // 加 contentview 边距
+        totalHeight += 16
         
         // 遍历所有模块
         for section in viewModel.modules {
-            // 标题高度
-            totalHeight += 40
             
             if section.type == .calculator {
-                totalHeight += 60 // 计算器展开高度
+                totalHeight += 92 // 计算器展开高度
             }
             
             // 模块项高度
             let itemCount = section.items.count
-            totalHeight += CGFloat(itemCount) * 42 // 每项高度48
+            totalHeight += CGFloat(itemCount) * 48 // 每项高度48
             
             // 特殊模块额外高度
             if section.type == .ai && section.isExpanded {
                 // 对AI模块预留更多空间，避免展开时的跳动
-                totalHeight += 700 // AI展开高度
+                totalHeight += 48 // AI展开高度
             }
             
             // 文件模块加载更多按钮
@@ -144,10 +146,10 @@ struct MainView: View {
                 totalHeight += 40
             }
             totalHeight = max(100, totalHeight) // 暂时没有定位到为什么只有一项的时候，高度不够的原因，先增加一个最低高度
-//            print("计算过程：\(section.type),\(totalHeight)") TODO 键盘导航时也会 updateheight 的问题
+            print("计算过程：\(section.type),\(totalHeight)") // TODO 键盘导航时也会 updateheight 的问题
         }
         
-        return totalHeight
+        return totalHeight+exHeight
     }
     
     // 设置键盘处理
@@ -180,10 +182,11 @@ struct MainView: View {
     }
     
     // 更新高度
-    private func updateHeight() {
-        let newHeight = calculateContentHeight()
+    private func updateHeight(exHeight: CGFloat = 0) {
+        let newHeight = calculateContentHeight(exHeight: exHeight)
         let targetHeight = min(60 + newHeight, 700)
         print("计算新高度: \(targetHeight)")
+        
         
         // 优化窗口高度更新机制，使用更平滑的动画
         Task { @MainActor in

@@ -67,6 +67,7 @@ class WindowCoordinator: NSObject {
         let oldHeight = currentHeight
         currentHeight = height
         
+        
         // 使用更高效的命令分组来避免频繁更新
         if abs(oldHeight - height) > 100 {
             // 对于大幅度高度变化，使用更长的延迟，让UI有时间准备

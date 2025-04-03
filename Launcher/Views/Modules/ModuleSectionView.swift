@@ -10,11 +10,11 @@ struct ModuleSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // 模块标题
-            Text(section.title)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .padding(.bottom, 4)
-                .padding(.horizontal, 8)
+//            Text(section.title)
+//                .font(.subheadline)
+//                .foregroundColor(.secondary)
+//                .padding(.bottom, 4)
+//                .padding(.horizontal, 8)
             
             // 模块项
             if section.items.isEmpty {

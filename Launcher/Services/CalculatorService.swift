@@ -160,7 +160,7 @@ class CalculatorService: ObservableObject {
             return true
         }
         
-        hasNumber = trimmed.contains("0-9")
+        hasNumber = trimmed.contains(where: \.isNumber)
         
         return hasOperator && hasNumber
     }

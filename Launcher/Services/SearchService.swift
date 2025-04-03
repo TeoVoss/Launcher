@@ -48,7 +48,7 @@ class SearchService: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] results in
                 guard let self = self else { return }
-                print("- 应用: \(appSearchService.appResults.count)")
+//                print("- 应用: \(appSearchService.appResults.count)")
                 self.updateSearchResults()
             }
             .store(in: &cancellables)
@@ -59,7 +59,7 @@ class SearchService: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] results in
                 guard let self = self else { return }
-                print("- 快捷指令: \(shortcutSearchService.shortcutResults.count)")
+//                print("- 快捷指令: \(shortcutSearchService.shortcutResults.count)")
                 self.updateSearchResults()
             }
             .store(in: &cancellables)
@@ -71,7 +71,7 @@ class SearchService: ObservableObject {
                 guard let self = self else { return }
                 self.fileResults = results
                 self.isSearchingFiles = fileSearchService.isSearchingFile
-                print("- 文件: \(fileSearchService.fileResults.count)")
+//                print("- 文件: \(fileSearchService.fileResults.count)")
             }
             .store(in: &cancellables)
         
@@ -90,7 +90,7 @@ class SearchService: ObservableObject {
         let allResults = combineResults()
         
         // 添加调试日志
-        print("- 合并结果总数: \(allResults.count)")
+//        print("- 合并结果总数: \(allResults.count)")
         
         // 更新发布属性
         searchResults = allResults

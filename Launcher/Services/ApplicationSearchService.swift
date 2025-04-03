@@ -352,8 +352,8 @@ class ApplicationSearchService: BaseSearchService, ObservableObject {
         }
         
         // 调试信息
-        print("应用搜索完成，找到 \(results.count) 个结果")
-        print("存入缓存 cachedKey \(cacheKey) : \(lastQueryResults[cacheKey])")
+        // print("应用搜索完成，找到 \(results.count) 个结果")
+        // print("存入缓存 cachedKey \(cacheKey) : \(lastQueryResults[cacheKey])")
         
         return results
     }

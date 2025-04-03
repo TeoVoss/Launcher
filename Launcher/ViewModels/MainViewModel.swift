@@ -86,9 +86,6 @@ class MainViewModel: ObservableObject {
                 self.handleFileResultsUpdated(results)
             }
             .store(in: &cancellables)
-        
-        // 设置AI响应监听器
-        setupAIResponseListener()
     }
     
     // 更新所有模块展示数据
@@ -499,7 +496,7 @@ class MainViewModel: ObservableObject {
             selectedItemIndex = nil
         } else {
             // 退出应用
-//            NSApp.hide(nil)
+            NSApp.hide(nil)
         }
     }
     
@@ -510,6 +507,11 @@ class MainViewModel: ObservableObject {
         // 空搜索直接清理
         if trimmedText.isEmpty {
             resetSearch()
+            return
+        }
+        
+        // AI 对话状态不用执行搜索
+        if aiModuleExpanded {
             return
         }
         
@@ -544,7 +546,7 @@ class MainViewModel: ObservableObject {
         updateModules()
         
         // 打印日志确认结果
-        print("文件搜索结果已更新: \(results.count)个结果，文件搜索模块展开状态: \(fileModuleExpanded)")
+//        print("文件搜索结果已更新: \(results.count)个结果，文件搜索模块展开状态: \(fileModuleExpanded)")
     }
     
     // 重置搜索状态
@@ -561,20 +563,6 @@ class MainViewModel: ObservableObject {
     // 清空搜索文本
     func clearSearchText() {
         searchText = ""
-    }
-    
-    // 监听AI响应变化以更新模块
-    func setupAIResponseListener() {
-        // 监听AI响应变化
-        aiService.$response
-            .sink { [weak self] _ in
-                // AI响应发生变化时更新模块数据
-                guard let self = self else { return }
-                if self.aiModuleExpanded {
-                    self.updateModules()
-                }
-            }
-            .store(in: &cancellables)
     }
 }
 
